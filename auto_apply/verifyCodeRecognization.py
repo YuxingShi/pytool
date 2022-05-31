@@ -1,0 +1,31 @@
+# coding:utf-8
+import re
+import base64
+import cv2
+import pytesseract
+import numpy as np
+
+imgstr = '/9j/4AAQSkZJRgABAgAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAeAHgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD3+iuN0XW20vVdV0fUZL6d4JQ8B8iW4kKHuSgIxjYe3LH8MvQfFJ/4SITXUupyQ3sUjpbiCaQRHzDgAY+YAIeVHfHY1kqjdvdeo+WXY9GorkbDxBHP4i1K5d9Ve0jCQQIlhOUDYy+VCcMD688/StN/FWnjzVig1OeWLG6KPTp9wz0zlBjjnmtY80lew1CT6G3RXHm+tp9VuJk1LxFHKoC4TSyQqk7goBgJwP8Aa59zVE+KNc/tJrC2udPdwSI1udPvFmZQMguAgG7HJwAPSrlBRV3L8/8AIzTlZtqy9UvzaO+orkdO1HxdfS5Eek+XGy+Ystrd25YHspkXrweQDjjNaWoW93qFt5eo6Jo1zAh37bi6LqpAPOGhwOCefeok1F7/AIP/ACNVTlez0+a/zNysy48R6JZzNDd6vZW0qkgpPOsbdcZwxGR156cVy1xp9vBaG6j+H2jXEPXMXlA7f72GjBxT9Bu9Y0/T2GneDI0hmlaUiG8hiXceOFxx0A/CiLUtinTUd/0/4J0P/CW+G/8AoYdJ/wDA2P8AxrYrhrv4iw6XdPaavDYaddpgtbzXzO4BGQT5cbAZ9CQe+MEEy614jRXgeey1WSDywZLaC0lUu2eQC6oCBxyccdOa0lSqpJ8j1200+/Yzbh3X3o7SiuFs/E1qkhm062tLPKASRarq0UGe4wqeadw5BDbceh5xq6frz3N/D5+u+Hljkbb9itpPOkJPACyl1yScH/Vjrjn71X9WqpXkrfj+Rn7SF9GdLRRRWBZwvid30fxKb6N2gS8sZY2kU5LSBSBjuvPlcjH86i1QRaZF4duIjFDLYlYrkoDgNwWUugI7Pkcn5icHNdle6VaajPFJdxiZYeUjYDaGz16Z/DOD6U+70+2vLI2kkUYjC4j/AHat5ZxgFQwK5GeMgiuZ0NZPvsNWMbw3p9w+jpPdTupu3a5kWL5DIXOdzMDxxtIC7fQ5roIoYoIhFDGkca9FRQAPwFZKaHeRRrHH4i1NEUBVVYrUAAdAB5NO+xa9F8kGs2skY6Nd2BeU/UpIin2wo4x1PJ3iuWKRbSf2l+P+RLo3zQXMw5jmuZJIz6rnGf0NX4YYreJYoIkijXoiKFA/AVkx2WvxIEj1LSEQdFXTJAB/5Hp3k+I0+b+0NKm28+X9hkj3+2/zW259drY64PSm3rcyp0VGKV1f5/5GvVDWt/8AZFx5e7dgZ2+mRn8MZqv9p8R/9ArSv/BlJ/8AGK0bVrl7ZGu4oopznckUpkUc8YYqpPGOwpO0lY2dOdO0pIoX2pWQ0uVIZFfdCQqxjO0EYGf7o5HXFVbXwjo5tIVvrAXzrGoxqErXYjOOdnmlgue+3GcD0FbK2dqqMi20IR8blCDBx0zU1XCc4O6dvQiXK1YhtLO1sLVLaztoba3TOyKFAiLk5OAOBySaZcXNmr/ZrmSIFl3bZOhGffjrVmmSwxTKFljSRQc4dQRmlJt6iVjDs1ih18R6fJm3MeZQrZX/AOvzj8zW7LFHNE8UqLJG6lXRxkMD1BHcUkUMUKlYo0jUnOEUAZp9RCPKhyfMULfQ9Js51ntdLsoJlztkit0VhkYOCBnoaKv0VpKTlq3chJLY/9k='
+
+def cv_show(img):
+    cv2.imshow('', img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+def get_verify_code(image_stream):
+    image = np.asarray(bytearray(image_stream), dtype="uint8")
+    im = cv2.imdecode(image, cv2.IMREAD_COLOR)
+    im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+    ret, thresh = cv2.threshold(im, 225, 255, cv2.THRESH_BINARY)
+    kernel = np.ones((3, 1), dtype=np.uint8)
+    # opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, 5)
+    opening = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, 5)
+    ss = np.hstack((im, thresh, opening))
+    cv_show(ss)
+
+
+if __name__ == '__main__':
+    get_verify_code(base64.decodebytes(bytes(imgstr, encoding='utf-8')))
+
+
