@@ -38,6 +38,7 @@ def connect_host_test(ip, port=22, user='root', password='root'):
         # transport = paramiko.SSHClient(sock=ip_port)
         # transport.start_client()
         # transport.auth_password(username=user, password=password)
+        client.close()
         return 0, (ip, port, user, password)
     except paramiko.AuthenticationException as e:
         return 1, '{} {} {} 密码错误'.format(ip_port, user, password)
@@ -49,7 +50,7 @@ if __name__ == "__main__":
     hosts_dict = init_hosts()
     password_list = get_passwd_list()
     tpe = ThreadPoolExecutor(max_workers=password_list.__len__())
-    all_tasks = [tpe.submit(connect_host_test, '10.168.1.10', password=passwd) for passwd in password_list]
+    all_tasks = [tpe.submit(connect_host_test, '10.168.6.135', password=passwd) for passwd in password_list]
     for task in as_completed(all_tasks):
         ret, result = task.result()
         if ret:
