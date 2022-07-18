@@ -1,4 +1,10 @@
 # coding:utf-8
+# @Time    : 2022/7/18 19:45
+# @Author  : ShiYuxing
+# @Email   : shiyuxing1988@gmail.com
+# @File    : SliderRecognizedServer.py.py
+# 滑块验证码识别服务
+# @Software: hzpython
 import random
 import time
 import os
@@ -61,18 +67,29 @@ def thresh2str(thresh_img):
 def calculate_index(text_list: list):
     first_line = text_list[0]
     last_line = text_list[-1]
-    sub = '111111111111111111111111111111'
+    sub = '01111111111111111111111111111110'  # 加个0排除干扰
     f_index_list = [substr.start() for substr in re.finditer(sub, first_line)]
     f_len = f_index_list.__len__()
     l_index_list = [substr.start() for substr in re.finditer(sub, last_line)]
     l_len = l_index_list.__len__()
-    if f_len == 1:
+    if f_len == 1 and l_len == 2:
         return f_index_list[0]
-    elif f_len == 2:  # 第一行匹配到两次子串
-        if l_len == 1:
-            return l_index_list[0]  # 如果最后一行只找到一次子串则就是该index
-        else:
-            return l_index_list[0]  # 如果最后一行匹配到多个默认返回第一个
+    elif f_len == 2 and l_len == 1:  # 第一行匹配到两次子串
+        return l_index_list[0]
+    elif f_len == 1 and l_len == 1:  # 干扰块与目标块重合起干扰块在上层
+        f_index, l_index = f_index_list[0], l_index_list[0]
+        if f_index > l_index:  # 左上角或右下角干扰块
+            if last_line[f_index + 1] == '1':  # 右下角干扰块 +1,因为匹配串为01111111111111111111111111111110
+                return f_index
+            else:  # 左上角干扰块
+                return l_index
+        elif f_index < l_index:  # 左下角或右上角干扰块
+            if first_line[l_index + 1] == '1':  # 右上角干扰块 +1,因为匹配串为01111111111111111111111111111110
+                return l_index
+            else:  # 左下角干扰块
+                return f_index
+        else:  # 干扰块与目标块重合
+            return f_index_list[0]
     else:  # 没有匹配到字符串则是未找到滑块
         raise Exception('无法识别滑块位置！')
 
