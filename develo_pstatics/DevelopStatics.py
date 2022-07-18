@@ -221,15 +221,15 @@ if __name__ == '__main__':
     # zt = ZenTaoStatics()
     # zt.static_developer_bug_2xls()
     # zt.static_tester_bug_2xls()
-    # es = EmailSender()
-    # es.set_email_subject("本月开发人员bug统计信息")
-    # es.set_email_body("大家好！\r\n    这是本月的开发人员Bug统计信息！请查收！")
-    # es.set_email_attach('本月开发人员Bug统计表.xlsx')
-    # receiver_list = ['huangzhiming', 'yanqingxi', 'zhangxianyong', 'huangguangshi', 'huanglibiao', 'likeqing']
-    # acc_list = ['dengjianghua', 'wenxinrong']
-    # receiver = ['{}@hztech.cn'.format(x) for x in receiver_list]
-    # acc = ['{}@hztech.cn'.format(x) for x in acc_list]
-    # es.send_email(receiver=receiver, acc=acc)
+    es = EmailSender()
+    es.set_email_subject("本月开发人员bug统计信息")
+    es.set_email_body("大家好！\r\n    这是本月的开发人员Bug统计信息！请查收！")
+    es.set_email_attach('本月开发人员Bug统计表.xlsx')
+    receiver_list = ['dengjianghua']
+    acc_list = ['wenxinrong']
+    receiver = ['{}@hztech.cn'.format(x) for x in receiver_list]
+    acc = ['{}@hztech.cn'.format(x) for x in acc_list]
+    es.send_email(receiver=receiver, acc=acc)
 
     es = EmailSender()
     es.set_email_subject("本月测试人员bug统计信息")
