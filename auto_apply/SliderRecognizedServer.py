@@ -14,16 +14,27 @@ import json
 import numpy as np
 import js2py
 import cv2
-from flask import Flask, make_response, request, jsonify
+from flask import Flask, make_response, request, jsonify, g
 from loguru import logger
+
+
+def _check_directory(directory: str):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
 app = Flask(__name__)
 curpath = os.path.split(os.path.realpath(__file__))[0]
-if not os.path.exists(os.path.join(curpath, 'logs')):
-    os.makedirs(os.path.join(curpath, 'logs'))
+_check_directory(os.path.join(curpath, 'logs'))
+_check_directory(os.path.join(curpath, 'failure_data'))
+_check_directory(os.path.join(curpath, 'success_data'))
+
 logfile = os.path.join(curpath, 'logs', 'checkcode.log')
 logger.add(logfile, level="INFO", rotation="500MB", encoding="utf-8", enqueue=True, retention="30 days")
-slider_path = os.path.abspath('slider_json')
+failure_data = os.path.join(curpath, 'failure_data')
+success_data = os.path.join(curpath, 'success_data')
+
+
+
 
 
 def time_file_name(ext: str):
@@ -90,8 +101,18 @@ def calculate_index(text_list: list):
                 return f_index
         else:  # 干扰块与目标块重合
             return f_index_list[0]
+    elif f_len == 0 and l_len == 1:  # 重合，干扰块缺口在首行，干扰块在目标块上方
+        return l_index_list[0]
+    elif f_len == 1 and l_len == 0:  # 重合，干扰块缺口在尾巴行，干扰块在目标块下方
+        return f_index_list[0]
     else:  # 没有匹配到字符串则是未找到滑块
         raise Exception('无法识别滑块位置！')
+
+
+@app.before_request
+def _init_counters():
+    with open('counter.json', 'r') as fp:
+        g.request_counter = json.load(fp)
 
 
 @app.route('/check/slider/', methods=['POST'], strict_slashes=False)
@@ -108,7 +129,7 @@ def slider_check():
     """
     remote_ip = request.remote_addr
     message = {}
-
+    g.request_counter['total'] = g.request_counter.get('total') + 1
     req_data = request.get_data(parse_form_data=True, as_text=True)
     logger.info('远程主机【{}】请求数据【{}】'.format(remote_ip, req_data))
     if len(req_data) != 0:
@@ -119,20 +140,35 @@ def slider_check():
             slider = base64_to_image(req_json.get('data').get('slider'))
             y = req_json.get('data').get('y')
             seed = req_json.get('seed')
+            # js统一执行
+            # js_content = """
+            #         var window={location:{host: "%s"}}
+            #         function callThePageFunction(seed) {
+            #             htmlSeed = %s
+            #             return seed = seed > 0 ? seed - htmlSeed : seed + htmlSeed;
+            #                         }
+            #         sy="%s"
+            #         var arr = sy.split(',')
+            #         var bds = arr[arr.length - 1]
+            #         eval(bds)
+            #         var y = arr[y_index]
+            #         """ % ('fj.122.gov.cn', seed, y)
+            # context.execute(js_content)
+            # y_index = int(context.y)
+            # js分段执行
             js_content = """
-                    var window={location:{host: "%s"}}
-                    function callThePageFunction(seed) {
-                        htmlSeed = %s
-                        return seed = seed > 0 ? seed - htmlSeed : seed + htmlSeed;
-                                    }
-                    sy="%s"
-                    var arr = sy.split(',')
-                    var bds = arr[arr.length - 1]
-                    eval(bds)
-                    var y = arr[seed]       
-                    """ % ('fj.122.gov.cn', seed, y)
+                                var window={location:{host: "%s"}}
+                                function callThePageFunction(seed) {
+                                    htmlSeed = %s
+                                    return seed = seed > 0 ? seed - htmlSeed : seed + htmlSeed;
+                                                }
+                                """ % ('fj.122.gov.cn', seed)
             context.execute(js_content)
-            y_index = int(context.y)
+            y_list = y.split(',')
+            y_js = y_list[-1]
+            [context.execute(y_js_split) for y_js_split in y_js.split(';')]  # 分段执行js
+            y_index = int(y_list[int(context.y_index)])
+            # 获取图片参数
             _, width, _ = background.shape
             s_height, _, _ = slider.shape
             cut_background = background[y_index + 10:y_index + s_height - 10, 0:width]
@@ -142,10 +178,16 @@ def slider_check():
             message['x_index'] = x_index - 10 + round(random.random(), 1)  # -10，偏移量，增加小数点一位
             message['y_index'] = y_index
             message['message'] = '操作成功！'
+            g.request_counter['success'] = g.request_counter.get('success') + 1
+            dict2json(req_json, os.path.join(success_data, time_file_name('json')))
         except Exception as e:
             message['code'] = -1
             message['message'] = str(e)
-        logger.info('远程主机【{}】返回数据【{}】'.format(remote_ip, message))
+            g.request_counter['failure'] = g.request_counter.get('failure') + 1
+            dict2json(req_json, os.path.join(failure_data, time_file_name('json')))
+        success_ratio = round((g.request_counter.get('success') / g.request_counter.get('total')) * 100, 2)
+        logger.info('远程主机【{}】返回数据【{}】 识别成功率【{}%】'.format(remote_ip, message, success_ratio))
+        dict2json(g.request_counter, 'counter.json')
         response = make_response(jsonify(message), 200)
         return response
 
