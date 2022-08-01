@@ -1,8 +1,8 @@
 # coding:utf-8
+import os
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import paramiko
-
 
 def init_hosts():
     with open('hosts.json', 'r')as fp:
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     hosts_dict = init_hosts()
     password_list = get_passwd_list()
     tpe = ThreadPoolExecutor(max_workers=password_list.__len__())
-    all_tasks = [tpe.submit(connect_host_test, '10.168.7.90', password=passwd) for passwd in password_list]
+    all_tasks = [tpe.submit(connect_host_test, '10.168.7.89', password=passwd) for passwd in password_list]
     for task in as_completed(all_tasks):
         ret, result = task.result()
         if ret:
