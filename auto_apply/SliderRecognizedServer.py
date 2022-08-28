@@ -16,6 +16,8 @@ import js2py
 import cv2
 from flask import Flask, make_response, request, jsonify, g
 from loguru import logger
+from gmssl import sm2
+import binascii
 
 
 def _check_directory(directory: str):
@@ -32,9 +34,6 @@ logfile = os.path.join(curpath, 'logs', 'checkcode.log')
 logger.add(logfile, level="INFO", rotation="500MB", encoding="utf-8", enqueue=True, retention="30 days")
 failure_data = os.path.join(curpath, 'failure_data')
 success_data = os.path.join(curpath, 'success_data')
-
-
-
 
 
 def time_file_name(ext: str):
@@ -107,6 +106,21 @@ def calculate_index(text_list: list):
         return f_index_list[0]
     else:  # 没有匹配到字符串则是未找到滑块
         raise Exception('无法识别滑块位置！')
+
+
+def sm2_password(message, pubkey):
+    """
+    慧舟科技密码加密算法
+    :param message: 明文
+    :param pubkey: 公钥
+    :return: 密文
+    """
+    pubkey = pubkey[2:]  # 取掉头部的两个字节
+    message_bytes = bytes(message, encoding='utf-8')
+    sm2_crypt = sm2.CryptSM2(public_key=pubkey, private_key='')
+    password_bytes = sm2_crypt.encrypt(message_bytes, CipherMode=0)  # 加密
+    password = '04' + binascii.b2a_hex(password_bytes).decode('utf-8')
+    return password
 
 
 @app.before_request
@@ -189,6 +203,28 @@ def slider_check():
         logger.info('远程主机【{}】返回数据【{}】 识别成功率【{}%】'.format(remote_ip, message, success_ratio))
         dict2json(g.request_counter, 'counter.json')
         response = make_response(jsonify(message), 200)
+        return response
+
+
+@app.route('/tool/sm2Encrypt/', methods=['POST'], strict_slashes=False)
+def sm2Encrypt():
+    remote_ip = request.remote_addr
+    message = {}
+    req_data = request.get_data(parse_form_data=True, as_text=True)
+    logger.info('远程主机【{}】请求数据【{}】'.format(remote_ip, req_data))
+    if len(req_data) != 0:
+        try:
+            req_json = json.loads(req_data)
+            text = req_json.get('text')
+            public_key = req_json.get('public_key')
+            message['code'] = 0
+            message['sm2password'] = sm2_password(text, public_key)
+            message['message'] = '操作成功！'
+        except Exception as e:
+            message['code'] = -1
+            message['message'] = str(e)
+        response = make_response(jsonify(message), 200)
+        logger.info('远程主机【{}】返回数据【{}】'.format(remote_ip, message))
         return response
 
 

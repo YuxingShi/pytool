@@ -10,8 +10,8 @@ import tkinter.messagebox as message_box
 from tkinter import *
 import cv2
 
-src_dir = './dest'
-dst_dir = os.path.abspath('tmp')
+src_dir = 'GIF_tool/dest'
+dst_dir = os.path.abspath('GIF_tool/tmp')
 
 if not os.path.exists(src_dir):
     os.makedirs(src_dir)

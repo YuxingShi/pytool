@@ -99,7 +99,7 @@ def processImage(path, dest):
 
 if __name__ == "__main__":
     # image = os.path.abspath(sys.argv[1])
-    image = os.path.abspath('ls.gif')
+    image = os.path.abspath('qq.gif')
     dest = os.path.join(os.path.dirname(image), "dest")
     if not os.path.exists(dest):
         os.mkdir(dest)

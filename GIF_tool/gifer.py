@@ -9,7 +9,7 @@ import time
 import imageio
 
 src_dir = os.path.abspath('tmp')  # H:\DelayPhoto   F:\\pythonGIF\\gifsrc
-dst_dir = './gifdst'
+dst_dir = 'gifdst'
 gif_duration = 0.04  # gif图片切换间隔时间（单位：秒）
 
 # 以下参数不能修改
