@@ -75,9 +75,11 @@ class App(tk.Tk):
         if PLATFORM == 'win32':
             cmd = 'wmic bios get serialnumber'
             sys_code = 'GBK'
+            pattern = '\r\r\n(.*?)\r\r'
         elif PLATFORM == 'darwin':
             cmd = "/usr/sbin/system_profiler SPHardwareDataType |fgrep 'Serial'|awk '{print $NF}'"
             sys_code = 'UTF-8'
+            pattern = '(.*?)\n'
         elif PLATFORM.count('linux'):
             cmd = "sudo dmidecode -t system|grep 'Serial Number'"
             sys_code = 'UTF-8'
@@ -85,7 +87,7 @@ class App(tk.Tk):
             return '无法识别的系统类型！'
         p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output = p.stdout.read().decode(sys_code)
-        output_list = re.findall('\r\r\n(.*?)\r\r', output, flags=re.DOTALL)
+        output_list = re.findall(pattern, output, flags=re.DOTALL)
         return output_list[0]
 
     @staticmethod
