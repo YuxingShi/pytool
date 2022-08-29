@@ -1,39 +1,22 @@
 # coding:utf-8
 import json
-import sys
-import re
 import time
 import os
-import socket
-from flask import request, Flask, make_response, jsonify, g
+from flask import request, Flask, make_response, jsonify
 from flask_httpauth import HTTPBasicAuth
-
-PLATFORM = sys.platform
 
 app = Flask(__name__)
 app.config['PROPAGATE_EXCEPTIONS'] = False  # 设置是否传递异常 , 如果为True, 则flask运行中的错误会显示到网页中, 如果为False, 则会输出到文件中
 auth = HTTPBasicAuth()
 
 
-def get_localhost_ip():
-    ip = None
-    try:
-        soc = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        soc.connect(('8.8.8.8', 80))
-        ip = soc.getsockname()[0]
-    finally:
-        soc.close()
-    return ip
-
-
-def get_serial_number():
-    if PLATFORM == 'win32':
-        cmd = 'wmic bios get serialnumber'
-    elif PLATFORM == 'darwin':
-        cmd = "/usr/sbin/system_profiler SPHardwareDataType |fgrep 'Serial'|awk '{print $NF}'"
-    elif PLATFORM == 'linux2':
-        cmd = ''
-    os.system()
+def get_json(filename):
+    file_path = os.path.abspath(filename)
+    if os.path.isfile(file_path):
+        with open(file_path, 'r') as fp:
+            return json.load(fp)
+    else:
+        return None
 
 
 @auth.get_password
@@ -52,13 +35,12 @@ def unauthorized():
 @auth.login_required
 def information():
     # 获取本机ip及序列号
+    data_dict = get_json('data.json')
     message = {}
-
-    if result[0] == 0:
-        return_dict = {'code': result[0], 'message': result[1], 'wwlsh': result[2]}
-    else:
-        return_dict = {'code': result[0], 'message': result[1]}
-    return make_response(jsonify(return_dict), 200)
+    message['code'] = 0
+    message['ip'] = data_dict.get('ip')
+    message['serialNumber'] = data_dict.get('serialNumber') or '无法获取主机序列号！'
+    return make_response(jsonify(message), 200)
 
 
 def shutdown_server():
