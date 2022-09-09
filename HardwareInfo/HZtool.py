@@ -81,7 +81,7 @@ class App(tk.Tk):
             sys_code = 'UTF-8'
             pattern = '(.*?)\n'
         elif PLATFORM.count('linux'):
-            cmd = "sudo dmidecode -t system|grep 'Serial Number'"
+            cmd = "sudo dmidecode -t system|grep 'Serial Number'|awk -F ':' '{print $NF}'"
             sys_code = 'UTF-8'
         else:
             return '无法识别的系统类型！'
