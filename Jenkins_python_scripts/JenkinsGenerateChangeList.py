@@ -43,6 +43,7 @@ class SVN(object):
         self.url = svn_url
         self.usr = svn_usr
         self.passwd = svn_passwd
+        self.message_head = svn_message
         self.project_name_list = project_names.split(',')
 
     @staticmethod
@@ -71,9 +72,10 @@ class SVN(object):
                 if cp.returncode != 0:
                     errmsg = parse(cp.stderr.decode('utf-8'))
                 elif cp.returncode == 0 and cp.stdout != b'':
-                    svn_output = cp.stdout.decode('GBK')  # .split('\r\n')[3:-4]  # [-1].decode('utf-8')[:-1]
+                    svn_output = cp.stdout.decode('utf-8')  # .split('\r\n')[3:-4]  # [-1].decode('utf-8')[:-1]
             else:
                 print(Fore.RED + "执行SVN出错!【%s】" % (params))
+        print(svn_output)
         return svn_output
 
     def get_revision_list_after_date(self, date='2022-09-06'):
@@ -84,26 +86,29 @@ class SVN(object):
         """
         self.params.extend(('log', self.url, '-r', '{%s}:HEAD' % date, '-v'))
         # pattern_log_split = '-{72,}\r\n(.*?)\r\n-{72,}'
-        pattern_revision = '\r\n(.*?)\r\nChanged paths:\r\n(.*?)\r\n\r\n(.*?)\r\n'
+        #pattern_revision = '\r\n(.*?)\r\nChanged paths:\r\n(.*?)\r\n\r\n(.*?)\r\n'
+        pattern_revision = '\n(.*?)\n改变的路径: \n(.*?)\n\n(.*?)\n'
         svn_log = self.execute_svn_command(self.params)
         revision_list = re.findall(pattern_revision, svn_log, flags=re.DOTALL)
+        print('revision_list', revision_list)
         return revision_list
 
-    def init_revision_dict_by_message_contain(self, message: str):
+    def init_revision_dict_by_message_contain(self):
         for info, changelist, message in self.get_revision_list_after_date():
-            if not message.startswith(message):
-                print('提交信息头不包含单号【{}】！略过！'.format(message))
+            if not message.startswith(self.message_head):
+                print('提交信息头不包含单号【{}】！略过！'.format(self.message_head))
                 continue
             info_list = info.split(' | ')
             changelist = changelist.split('\r\n')
             self.revision_dict[info_list[0]] = {'info_list': info_list, 'changelist': changelist}
-        print(self.revision_dict)
+        print('self.revision_dict', self.revision_dict)
 
     def merge_changelist(self):
         """
         按合并变更列表
         :return:
         """
+        self.init_revision_dict_by_message_contain()
         for key, value in self.revision_dict.items():
             changelist = value.get('changelist')
             for path in changelist:
@@ -118,13 +123,14 @@ class SVN(object):
                             self.project_dict.get(project_name).append((flag, project_path))
                     except ValueError:
                         continue
-        return self.project_dict
+        print('self.project_dict', self.project_dict)
 
     def generate_changelist_file(self):
         """
         生成变更列表txt
         :return:
         """
+        self.merge_changelist()
         for project_name, flag_path in self.project_dict.items():
             temp_dict = {}
             for flag, path in flag_path:
@@ -151,17 +157,17 @@ def usage():
             参数3 要生成变更列表的项目名称，以源代码的项目根目录为名称，多个以英文逗号隔开。如： 
             'hztech-web-gd,hztech-module-gdcrtmis-system,hztech-module-gdcrtmis-biz,hztech-module-workflow-biz,' \
             'hztech-cloud-nacos,hztech-boot-eventframework,hztech-boot-tools-jmreport,hztech-boot-tools-obs'
-            JenkinsFlowProcess.py   xzrtmis path_hn_20180329_0001#path_hn_20180329_0002 113 张中华  3 /usr/local/jenkins_workspace/workspace/test-rest/finance-restn  https://10.168.1.112/svn/test/finance-rest https://10.168.1.112/svn/test/test
-            /usr/local/jenkins_workspace/tools/JenkinsFlowProcess.py quartz-sync REQUEST_20190606_131312 16 林淑清 3 /usr/local/jenkins_workspace/workspace/quartz-sync/quartz-sync https://10.168.1.202/svn/01.产品and项目/20湖南财补/02湖南财政惠农补贴系统省集中项目/08受控代码/quartz-sync https://10.168.1.202/svn/01.产品and项目/20湖南财补/02湖南财政惠农补贴系统省集中项目/07分支管理/2019 /usr/local/jenkins_workspace/workspace/quartz-sync/BUILD43/路径说明quartz-sync.txt """)
+            JenkinsGenerateChangeList.py.py https://10.168.1.202/svn/01.产品and项目/11广东/01广东运政改造项目/05模块代码
+             DR20220906001 hztech-web-gd,hztech-module-gdcrtmis-system,hztech-module-gdcrtmis-biz,
+             hztech-module-workflow-biz,hztech-cloud-nacos,hztech-boot-eventframework,hztech-boot-tools-jmreport,
+             hztech-boot-tools-obs""")
     sys.exit(1)
 
 
 if __name__ == '__main__':
     import jenkinsconf
-    if (len(sys.argv) != 6 and len(sys.argv) != 7 and len(sys.argv) != 10 and len(sys.argv) != 11):
+    if (len(sys.argv) != 4):
         usage()
     svn = SVN(svn_url=sys.argv[1], svn_usr=jenkinsconf.svnusr, svn_passwd=jenkinsconf.svnpwd, svn_message=sys.argv[2],
               project_names=sys.argv[3])
-    svn.init_revision_dict_by_message_contain('')
-    svn.merge_changelist()
     svn.generate_changelist_file()
