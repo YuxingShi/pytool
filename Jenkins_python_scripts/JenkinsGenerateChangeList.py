@@ -99,7 +99,7 @@ class SVN(object):
                 print('提交信息头不包含单号【{}】！略过！'.format(self.message_head))
                 continue
             info_list = info.split(' | ')
-            changelist = changelist.split('\r\n')
+            changelist = changelist.split('\n')
             self.revision_dict[info_list[0]] = {'info_list': info_list, 'changelist': changelist}
         print('self.revision_dict', self.revision_dict)
 
