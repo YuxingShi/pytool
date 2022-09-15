@@ -1,5 +1,5 @@
 svn log -r 86143 -v  # 查看指定revision的变更文件列表
 
-svn log -r {2022-09-01}:HEAD  # 查看指定日志至今的svn提交日志
+svn log -r {2022-09-01}:HEAD -v  # 查看指定日志至今的svn提交日志
 
 svn log -r {2022-09-08}:HEAD|grep 文件图片地址转换 -B 2    # 获取包含message内容的revision

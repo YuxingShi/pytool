@@ -118,7 +118,7 @@ class SVN(object):
     def get_revision_dict_by_message_contain(message_head: str, revision_list: list):
         revision_dict = {}
         for info, changelist, message in revision_list:
-            if not message.startswith(message_head):
+            if not message.count(message_head):
                 # print(Fore.YELLOW + '提交信息头不包含单号【{}】！略过！'.format(message_head))
                 continue
             info_list = info.split(' | ')
@@ -156,18 +156,20 @@ class SVN(object):
         :return:
         """
         for project_name, flag_path in project_dict.items():
-            temp_dict = {}
+            temp_dict = {'AM': [], 'D': []}
             for flag, path in flag_path:
-                if temp_dict.get(flag) is None:
-                    temp_dict[flag] = [path]
-                else:
-                    temp_dict.get(flag).append(path)
+                if flag == 'D':  # 当标志位删除时候从AM队列中删除对应的文件路径
+                    try:
+                        temp_dict.get('AM').remove(path)
+                    except ValueError as e:
+                        temp_dict.get(flag).append(path)
+                        continue
+                else:  # 新增和变更的文件放到一起
+                    temp_dict.get('AM').append(path)
             text = ''
             for temp_key, temp_value in temp_dict.items():
-                if temp_key == 'A':
-                    text += '#新增文件\n' + '\n'.join(set(temp_value)) + '\n\n'
-                elif temp_key == 'M':
-                    text += '#修改文件\n' + '\n'.join(set(temp_value)) + '\n\n'
+                if temp_key == 'AM':
+                    text += '#新增变更文件\n' + '\n'.join(set(temp_value)) + '\n\n'
                 elif temp_key == 'D':
                     text += '#删除文件\n#' + '#\n#'.join(set(temp_value)) + '\n\n'
             filename = '{}路径说明.txt'.format(project_name)
@@ -202,6 +204,7 @@ if __name__ == '__main__':
 
     if (len(sys.argv) != 4):
         usage()
+    print(sys.argv)
     svn = SVN(svn_url=sys.argv[1], svn_usr=jenkinsconf.svnusr, svn_passwd=jenkinsconf.svnpwd, project_names=sys.argv[2],
               working_path=sys.argv[3])
     svn.batch_generate_changelist_file()
