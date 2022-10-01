@@ -1,7 +1,5 @@
 #coding:utf-8
-
 import wmi
-
 
 c = wmi.WMI()
 

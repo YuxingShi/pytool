@@ -50,7 +50,7 @@ if __name__ == "__main__":
     hosts_dict = init_hosts()
     password_list = get_passwd_list()
     tpe = ThreadPoolExecutor(max_workers=password_list.__len__())
-    all_tasks = [tpe.submit(connect_host_test, '10.168.6.55', password=passwd) for passwd in password_list]
+    all_tasks = [tpe.submit(connect_host_test, '10.168.7.67', password=passwd) for passwd in password_list]
     for task in as_completed(all_tasks):
         ret, result = task.result()
         if ret:
