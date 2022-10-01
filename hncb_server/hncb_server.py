@@ -2,7 +2,7 @@
 # @Time    : 2022/9/29 19:45
 # @Author  : ShiYuxing
 # @Email   : shiyuxing1988@gmail.com
-# @File    : test_server.py
+# @File    : hncb_server.py
 # 测试试用服务
 # @Software: hzpython
 import hashlib

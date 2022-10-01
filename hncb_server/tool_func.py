@@ -1,6 +1,7 @@
 # coding: utf-8 -*- coding: utf-8
 import base64
 import binascii
+import ftplib
 import json
 import os
 import re
@@ -10,7 +11,6 @@ import sys
 
 import cv2
 import paramiko
-import stat
 import numpy as np
 from gmssl import sm2, sm3, func
 from gmssl.sm4 import CryptSM4, SM4_ENCRYPT, SM4_DECRYPT
@@ -80,12 +80,25 @@ class FtpTool(object):
         elif os.path.isdir(src):
             return self._XFER_DIR, ''
 
-    def upload(self, src):
+    def upload(self, src, remote_path):
+        self._make_n_cwd_remote_path(remote_path)
         filetype, filename = self.__filetype(src)
         if filetype == self._XFER_DIR:
             self.uploadDir(src)
         elif filetype == self._XFER_FILE:
             self.uploadFile(src, filename)
+
+    def _make_n_cwd_remote_path(self, remote_path):
+        """
+        创建并改变目录到指定目录
+        """
+        rp_list = [p for p in remote_path.split('/') if p != '']
+        for p in rp_list:
+            try:
+                self.ftp.cwd(p)
+            except ftplib.error_perm:
+                self.ftp.mkd(p)
+                self.ftp.cwd(p)
 
 
 class SMUtils:
@@ -176,40 +189,6 @@ def thresh2str(thresh_img):
     return rows_list
 
 
-def calculate_index(text_list: list):
-    first_line = text_list[0]
-    last_line = text_list[-1]
-    sub = '01111111111111111111111111111110'  # 加个0排除干扰
-    f_index_list = [substr.start() for substr in re.finditer(sub, first_line)]
-    f_len = f_index_list.__len__()
-    l_index_list = [substr.start() for substr in re.finditer(sub, last_line)]
-    l_len = l_index_list.__len__()
-    if f_len == 1 and l_len == 2:
-        return f_index_list[0]
-    elif f_len == 2 and l_len == 1:  # 第一行匹配到两次子串
-        return l_index_list[0]
-    elif f_len == 1 and l_len == 1:  # 干扰块与目标块重合起干扰块在上层
-        f_index, l_index = f_index_list[0], l_index_list[0]
-        if f_index > l_index:  # 左上角或右下角干扰块
-            if last_line[f_index + 1] == '1':  # 右下角干扰块 +1,因为匹配串为01111111111111111111111111111110
-                return f_index
-            else:  # 左上角干扰块
-                return l_index
-        elif f_index < l_index:  # 左下角或右上角干扰块
-            if first_line[l_index + 1] == '1':  # 右上角干扰块 +1,因为匹配串为01111111111111111111111111111110
-                return l_index
-            else:  # 左下角干扰块
-                return f_index
-        else:  # 干扰块与目标块重合
-            return f_index_list[0]
-    elif f_len == 0 and l_len == 1:  # 重合，干扰块缺口在首行，干扰块在目标块上方
-        return l_index_list[0]
-    elif f_len == 1 and l_len == 0:  # 重合，干扰块缺口在尾巴行，干扰块在目标块下方
-        return f_index_list[0]
-    else:  # 没有匹配到字符串则是未找到滑块
-        raise Exception('无法识别滑块位置！')
-
-
 def sm2_password(message, pubkey):
     """
     慧舟科技密码加密算法
@@ -223,64 +202,6 @@ def sm2_password(message, pubkey):
     password_bytes = sm2_crypt.encrypt(message_bytes, CipherMode=0)  # 加密
     password = '04' + binascii.b2a_hex(password_bytes).decode('utf-8')
     return password
-
-
-# 判断sftp服务端中文件路径是否存在，若不存在则创建
-def create_dir(sftp, remoteDir):
-    try:
-        if stat.S_ISDIR(sftp.stat(remoteDir).st_mode):  # 如果remoteDir存在且为目录，则返回True
-            pass
-    except Exception as e:
-        sftp.mkdir(remoteDir)
-        print("在远程sftp上创建目录：{}".format(remoteDir))
-
-
-# 上传
-def sftp_upload(sftp, localDir, remoteDir):
-    if os.path.isdir(localDir):  # 判断本地localDir是否为目录
-        for file in os.listdir(localDir):
-            remoteDirTmp = os.path.join(remoteDir, file)
-            localDirTmp = os.path.join(localDir, file)
-            if os.path.isdir(localDirTmp):  # 如果本地localDirTmp为目录，则对远程sftp服务器进行判断
-                create_dir(sftp, remoteDirTmp)  # 判断sftp服务端文件目录是否存在,若不存在则创建
-            sftp_upload(sftp, localDirTmp, remoteDirTmp)
-    else:
-        print("upload file:", localDir)
-        try:
-            sftp.put(localDir, remoteDir)
-        except Exception as e:
-            print('upload error:', e)
-
-
-# 连接ftp并登录
-def ftp_connect(host, port, username, password):
-    ftp = FTP()
-    # ftp.set_debuglevel(2)         # 打开调试级别2，显示详细信息
-    ftp.connect(host, port)  # 连接
-    ftp.login(username, password)  # 登录，如果匿名登录则用空串代替即可
-    return ftp
-
-
-# 下载文件
-# def downloadfile(ftp, remotepath, localpath):  # remotepath：上传服务器路径；localpath：本地路径；
-#     bufsize = 1024                # 设置缓冲块大小
-#     fp = open(localpath,'wb')     # 以写模式在本地打开文件
-#     ftp.retrbinary('RETR ' + remotepath, fp.write, bufsize) # 接收服务器上文件并写入本地文件
-#     ftp.set_debuglevel(0)         # 关闭调试
-#     fp.close()                    # 关闭文件
-
-# 上传文件
-def uploadfile(ftp, remotepath, localpath):
-    bufsize = 1024
-    fp = open(localpath, 'rb')
-    ftp.storbinary('STOR '+ remotepath , fp, bufsize)    # 上传文件
-    ftp.set_debuglevel(0)
-    fp.close()
-
-
-def ftp_upload_file():
-    ftp = ftp_connect('10.168.7.74', 2100, 'hncb', 'Fnc9293')
-    uploadfile(ftp, "'/430205/20220930/", "./test.txt")
 
 
 if __name__ == '__main__':
@@ -297,4 +218,4 @@ if __name__ == '__main__':
     # sftp_upload(sftp, localDir, remoteDir)
     # sf.close()
     ftp_tool = FtpTool('10.168.7.74', 'hncb', 'Fnc9293')
-    ftp_tool.upload('./logs')
+    ftp_tool.upload('./logs/checkcode.log', '/a/b/c/d/')

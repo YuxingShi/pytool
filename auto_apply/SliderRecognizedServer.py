@@ -2,7 +2,7 @@
 # @Time    : 2022/7/18 19:45
 # @Author  : ShiYuxing
 # @Email   : shiyuxing1988@gmail.com
-# @File    : test_server.py.py
+# @File    : hncb_server.py.py
 # 滑块验证码识别服务
 # @Software: hzpython
 import random
