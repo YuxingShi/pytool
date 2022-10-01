@@ -2,7 +2,7 @@
 # @Time    : 2022/7/18 19:45
 # @Author  : ShiYuxing
 # @Email   : shiyuxing1988@gmail.com
-# @File    : SliderRecognizedServer.py.py
+# @File    : test_server.py.py
 # 滑块验证码识别服务
 # @Software: hzpython
 import random
@@ -18,6 +18,7 @@ from flask import Flask, make_response, request, jsonify, g
 from loguru import logger
 from gmssl import sm2
 import binascii
+import crcmod
 
 
 def _check_directory(directory: str):
@@ -207,6 +208,28 @@ def slider_check():
 
 
 @app.route('/tool/sm2Encrypt/', methods=['POST'], strict_slashes=False)
+def sm2Encrypt():
+    remote_ip = request.remote_addr
+    message = {}
+    req_data = request.get_data(parse_form_data=True, as_text=True)
+    logger.info('远程主机【{}】请求数据【{}】'.format(remote_ip, req_data))
+    if len(req_data) != 0:
+        try:
+            req_json = json.loads(req_data)
+            text = req_json.get('text')
+            public_key = req_json.get('public_key')
+            message['code'] = 0
+            message['sm2password'] = sm2_password(text, public_key)
+            message['message'] = '操作成功！'
+        except Exception as e:
+            message['code'] = -1
+            message['message'] = str(e)
+        response = make_response(jsonify(message), 200)
+        logger.info('远程主机【{}】返回数据【{}】'.format(remote_ip, message))
+        return response
+
+
+@app.route('/tool/sm4Encrypt/', methods=['POST'], strict_slashes=False)
 def sm2Encrypt():
     remote_ip = request.remote_addr
     message = {}

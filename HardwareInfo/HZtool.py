@@ -199,6 +199,7 @@ class App(tk.Tk):
 
     def thread_http_server(self):
         self.status_value.set('正在运行')
+        app.config
         app.run(host='0.0.0.0', port=8848)
         self.status_value.set('已停止')
 

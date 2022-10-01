@@ -1,7 +1,6 @@
 # coding:utf-8
 import json
 import os
-from loguru import logger
 from flask import request, Flask, make_response, jsonify
 
 app = Flask(__name__)
@@ -27,7 +26,6 @@ def information():
     message['biosSn'] = data_dict.get('LocalMachine').get('biosSn') or '无法获取BIOS序列号！'
     message['baseboardSn'] = data_dict.get('LocalMachine').get('baseboardSn') or '无法获取主版序列号！'
     message['cpuSn'] = data_dict.get('LocalMachine').get('cpuSn') or '无法获取CPU序列号！'
-    logger.info('返回信息【{}】'.format(message))
     return make_response(jsonify(message), 200)
 
 
