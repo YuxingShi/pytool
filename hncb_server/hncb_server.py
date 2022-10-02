@@ -6,6 +6,7 @@
 # 测试试用服务
 # @Software: hzpython
 import hashlib
+from datetime import datetime
 from flask import Flask, make_response, request, jsonify
 from loguru import logger
 
@@ -15,13 +16,9 @@ from tool_func import *
 app = Flask(__name__)
 curpath = os.path.split(os.path.realpath(__file__))[0]
 check_directory(os.path.join(curpath, 'logs'))
-check_directory(os.path.join(curpath, 'failure_data'))
-check_directory(os.path.join(curpath, 'success_data'))
 
 logfile = os.path.join(curpath, 'logs', 'checkcode.log')
 logger.add(logfile, level="INFO", rotation="500MB", encoding="utf-8", enqueue=True, retention="30 days")
-failure_data = os.path.join(curpath, 'failure_data')
-success_data = os.path.join(curpath, 'success_data')
 
 
 @app.route('/tool/sm2Encrypt/', methods=['POST'], strict_slashes=False)
@@ -82,6 +79,8 @@ def hncb_files():
     remote_ip = request.remote_addr
     message = {}
     key = request.args.get('key')
+    typecode = request.args.get('typecode')
+    country = request.args.get('country')
     req_data = request.get_data(parse_form_data=True, as_text=True)
     logger.info('远程主机【{}】请求数据【{}】'.format(remote_ip, req_data))
     if len(req_data) != 0:
@@ -106,7 +105,12 @@ def hncb_files():
                 raw_string += new_cols[2] + new_cols[0] + new_cols[1] + new_cols[6]  # MD5值：加密后的卡号、补贴对象姓名、身份证号、金额(实发金额) 32位小写
             new_rows.append(hashlib.md5(bytes(raw_string, encoding='utf-8')).hexdigest())
             return_text = '\n'.join(new_rows)
-            save2file('./test.txt', return_text)
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
+            save_filename = 'data_{}_{}_01_{}_01.txt'.format(typecode, country, timestamp[:15])
+            save2file(save_filename, return_text)
+            ftp_tool = FtpTool('10.168.7.74', 'hncb', 'Fnc9293')
+            remote_path = '/{}/{}'.format(country, timestamp[:8])
+            ftp_tool.upload(save_filename, remote_path)
             message['code'] = 0
             message['text'] = return_text
             message['message'] = '操作成功！'
