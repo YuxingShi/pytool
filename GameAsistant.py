@@ -1,6 +1,8 @@
 # coding:utf-8
 import time
 import win32gui
+import win32con
+import win32api
 from PIL import ImageGrab
 
 
@@ -20,6 +22,17 @@ class GameAssist(object):
         # left, top, right, bottom = win32gui.GetWindowRect(self.hwnd)
         self.scree_left_and_right_point = win32gui.GetWindowRect(self.hwnd)
         print(self.scree_left_and_right_point)
+
+    def set_mouse_at_window_center(self):
+        left, top, right, bottom = self.scree_left_and_right_point
+        window_center = (left + right)//2, (top + bottom)//2
+        win32api.SetCursorPos(window_center)
+
+    def click(self, times=100000):
+        for i in range(times):
+            win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
+            time.sleep(0.01)
+            win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
 
     def screenshot(self):
         """屏幕截图"""
@@ -54,10 +67,12 @@ class GameAssist(object):
 
 if __name__ == "__main__":
     # wd name 为连连看窗口的名称，必须写完整
-    window_name = u'三国全明星'
+    window_name = u'咸鱼之王'
     demo = GameAssist(window_name)
+    demo.set_mouse_at_window_center()
+    demo.click()
     # time.sleep(1)
-    demo.screenshot()
+    # demo.screenshot()
 
 
 

@@ -62,13 +62,15 @@ class SVN(object):
             exit(1)
         self.child_working_path_dict.clear()
         for dir_name in os.listdir(self.working_path):
-            dev_match = re.findall('DR(\d{8,})(\d{3,})', dir_name)  # 匹配PP系统开发单号
+            # dev_match = re.findall('DR(\d{8,})(\d{3,})', dir_name)  # 匹配PP系统开发单号
+            dev_match = re.findall('(\d{8,})', dir_name)  # 非PP系统开发单号
             if len(dev_match) > 0:
                 child_dir = os.path.join(self.working_path, dir_name)
                 if os.path.isfile(child_dir):
                     continue
                 else:
-                    dev_date, dev_sn = dev_match[0]
+                    # dev_date, dev_sn = dev_match[0]  # 匹配PP系统开发单号
+                    dev_date = dev_match[0]  # 非PP系统单号
                     self.child_working_path_dict[dir_name] = {'path': child_dir, 'date': dev_date}
         # print('self.child_working_path_dict', self.child_working_path_dict)
 
@@ -88,6 +90,7 @@ class SVN(object):
             else:
                 errmsg = parse(er)  # .encode('utf-8')
         if is_py3:
+            # print('执行svn命令：{}'.format(' '.join(params)))
             cp = subprocess.run(params, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if cp:
                 if cp.returncode != 0:
@@ -119,7 +122,7 @@ class SVN(object):
         revision_dict = {}
         for info, changelist, message in revision_list:
             if not message.count(message_head):
-                # print(Fore.YELLOW + '提交信息头不包含单号【{}】！略过！'.format(message_head))
+                print(Fore.YELLOW + '提交信息头【{}】不包含单号【{}】！略过！'.format(message, message_head))
                 continue
             info_list = info.split(' | ')
             changelist = changelist.split('\n')  # linux下为\n
@@ -136,7 +139,8 @@ class SVN(object):
         for key, value in revision_dict.items():
             changelist = value.get('changelist')
             for path in changelist:
-                flag, svn_path = re.findall('   ([MDA]) /(.*)', path, flags=re.DOTALL)[0]
+                print(path)
+                flag, svn_path = re.findall('   ([MDA]) /(\S*)', path)[0]  # , flags=re.DOTALL
                 for project_name in self.project_name_list:
                     try:
                         project_name_index = svn_path.index(project_name)
