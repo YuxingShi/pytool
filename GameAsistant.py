@@ -1,17 +1,25 @@
 # coding:utf-8
 import time
+from threading import Thread
+import tkinter as tk
+from tkinter import ttk, messagebox, simpledialog
 import win32gui
 import win32con
 import win32api
 from PIL import ImageGrab
+from pynput import keyboard, mouse
 
 
-class GameAssist(object):
+class App(tk.Tk):
+    flag_mouse_click = False
 
-    def __init__(self, wd_name):
+    def __init__(self):
         """初始化"""
-
+        super().__init__()
+        self.title("游戏助手")
+        self.protocol("WM_DELETE_WINDOW", self._on_closing_)  # 绑定窗口关闭事件
         # 取得窗口句柄
+        wd_name = '咸鱼之王'
         self.hwnd = win32gui.FindWindow(0, wd_name)
         if not self.hwnd:
             print("窗口找不到，请确认窗口句柄名称：【%s】" % wd_name)
@@ -21,18 +29,46 @@ class GameAssist(object):
         # 获取窗口位置,左上角，右下角
         # left, top, right, bottom = win32gui.GetWindowRect(self.hwnd)
         self.scree_left_and_right_point = win32gui.GetWindowRect(self.hwnd)
+        self.start_all_listener()
         print(self.scree_left_and_right_point)
+
+    # 主窗口关闭事件处理
+    def _on_closing_(self):
+        self.destroy()
+
+    # 开启监听剪切板线程
+    def start_all_listener(self):
+        # 剪切板监听线程
+        Thread(target=self.thread_keyboard_listening, daemon=True).start()
+        Thread(target=self.thread_mouse_click, daemon=True).start()
+
+    def thread_mouse_click(self):
+        while True:
+            if self.flag_mouse_click:
+                self.set_mouse_at_window_center()
+                self.mouse_click()
+
+    def thread_keyboard_listening(self):
+        with keyboard.GlobalHotKeys(
+                {'<ctrl>+s': self.on_start_mouse_click, '<ctrl>+t': self.on_terminal_mouse_click}) as hot_key:
+            hot_key.join()
+
+    def on_start_mouse_click(self):
+        self.flag_mouse_click = True
+
+    def on_terminal_mouse_click(self):
+        self.flag_mouse_click = False
 
     def set_mouse_at_window_center(self):
         left, top, right, bottom = self.scree_left_and_right_point
-        window_center = (left + right)//2, (top + bottom)//2
+        window_center = (left + right) // 2, (top + bottom) // 2
         win32api.SetCursorPos(window_center)
 
-    def click(self, times=100000):
-        for i in range(times):
-            win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
-            time.sleep(0.01)
-            win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
+    @staticmethod
+    def mouse_click():
+        win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
+        time.sleep(0.01)
+        win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
 
     def screenshot(self):
         """屏幕截图"""
@@ -65,15 +101,5 @@ class GameAssist(object):
         # return image_list
 
 
-if __name__ == "__main__":
-    # wd name 为连连看窗口的名称，必须写完整
-    window_name = u'咸鱼之王'
-    demo = GameAssist(window_name)
-    demo.set_mouse_at_window_center()
-    demo.click()
-    # time.sleep(1)
-    # demo.screenshot()
-
-
-
-
+hz_app = App()
+hz_app.mainloop()
