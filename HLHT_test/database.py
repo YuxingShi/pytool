@@ -1,5 +1,6 @@
 # coding: utf-8 -*-
 import time
+import json
 from datetime import datetime
 
 import cx_Oracle
@@ -44,7 +45,7 @@ class Oracle(object):
         """
         try:
             if rownum:
-                sql = sql + '\nand rownum<{}'.format(rownum)
+                sql = sql + '\nand rownum<={}'.format(rownum)
             self._cursor.execute(sql)
             data_tup = self._cursor.fetchall()
             if field_title:
@@ -66,41 +67,15 @@ class Oracle(object):
 
 
 if __name__ == "__main__":
-    me = Oracle(user='CRTMIS', passwd='CRTMIS', tsn='10.168.6.8:1521/GZRTMIS')
-    sql = '''
-SELECT A.LINPERREG_ID,
-       SUBSTR(A.DOCDEPCODE, 0, 2) || '0000' AS PROVINCECODE,
-       A.LINPERREG_ID OPERLINEID,
-       T1.LINE_NAME OPERLINENAME,
-       A.OWNER_ID OWNERID,
-       CRTMIS.GETDATADICT('LINTYPE', T1.LINTYPE) LINEOPTYPE,
-       T1.LINTYPE LINEOPTYPECODE,
-       T1.STADEPOT STARTSTATIONZONE,
-       CRTMIS.F_GET_DEPOTNAME(T1.STADEPOT) STARTSTATION,
-       CRTMIS.F_GET_DEPOTNAME(T1.ENDDEPOT) ENDSTATION,
-       T1.ENDDEPOT ENDSTATIONZONE,
-       T1.BERTH LINETRANSPLACE,
-       T1.TIMES || '次/' || A.DAYS || '日' LINEFREQUENCY,
-       T1.SUMMIL LINEMILEAGE,
-       T1.HEIMIL LINEEXPRESSWAYMILEAGE,
-       T1.BUSAREA LINEAREACODE,
-       CRTMIS.GETDATADICT('BUSAREA', T1.BUSAREA) LINEAREA,
-       A.IS_COUNTRY COUNTRYSIDEFLAG,
-       CRTMIS.GETDATADICT('LINESTATUS', A.LINESTATUS) LINEOPSTATUS,
-       A.LINESTATUS LINEOPSTATUSCODE,
-       REPLACE(T1.STADATE, '-', '') LINEVALIDBEGIN,
-       REPLACE(T1.ENDDATE, '-', '') LINEVALIDEND,
-       REPLACE(A.CREDATE, '-', '') ISSUEDATE,
-       SUBSTR(to_char(A.SYSOPERTIME), 0, 14) BUSINESSCOMPLETIONTIME,
-       SUBSTR(TO_CHAR(A.SYSOPERTIME), 0, 14) AS OPERTIME,
-       DECODE(A.HLHT_OPERTYPE, NULL, '2', A.HLHT_OPERTYPE) OPERTYPE
-  FROM CRTMIS.TF_BS_LINPERREG A
-  LEFT JOIN CRTMIS.TF_BS_PERMIT_LINCARD T1
-    ON A.LINPERREG_ID = T1.LINPERREG_ID
-  LEFT JOIN CRTMIS.TF_EV_APPLINPER A
-    ON A.PER_ID = A.PER_ID
- WHERE A.DOCDEPCODE IS NOT NULL
-   AND A.LINPERREG_ID IS NOT NULL
-    '''
-    print(me.execute_sql(sql))
+    db = Oracle(user='CRTMIS', passwd='CRTMIS', tsn='10.168.6.33:1521/CRTMISGZ')
+
+    hlht_data_sql = '''select INPUT from TF_BS_HLHTDATA_RB where intf_code='{}' '''.format('RB0107')
+    data_tup = db.execute_sql(hlht_data_sql, field_title=False, rownum=1)
+    if data_tup:
+        input_str = data_tup[0][0]
+        input_dict = json.loads(input_str)
+        body_str = input_dict.get('body')
+        body_dict = json.loads(body_str)
+        req_info = body_dict.get('reqInfo')
+        print(req_info.keys())
 

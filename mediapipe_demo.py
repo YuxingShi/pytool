@@ -22,7 +22,7 @@ while True:  # 主程序
     c_time = time.time()
     fps = 1 / (c_time - p_time)
     p_time = c_time
-    cv2.putText(frame1, 'fps:{}'.format(fps), (10, 25), cv2.FONT_ITALIC, 1.0, (0, 255, 0), thickness=2)
+    cv2.putText(frame1, 'fps:{}'.format(round(fps, 2)), (10, 25), cv2.FONT_ITALIC, 1.0, (0, 255, 0), thickness=2)
     cv2.imshow("Camera", frame1)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break

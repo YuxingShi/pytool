@@ -6,6 +6,7 @@ from colorama import init
 from colorama import Fore
 import subprocess
 import sys
+import time
 
 init(autoreset=True, strip=False)  # init(autoreset=True,strip=False)初始化color输出
 
@@ -62,15 +63,23 @@ class SVN(object):
             exit(1)
         self.child_working_path_dict.clear()
         for dir_name in os.listdir(self.working_path):
-            # dev_match = re.findall('DR(\d{8,})(\d{3,})', dir_name)  # 匹配PP系统开发单号
-            dev_match = re.findall('(\d{8,})', dir_name)  # 非PP系统开发单号
+            if dir_name.startswith('DR'):
+                dev_match = re.findall('DR(\d{8,})(\d{3,})', dir_name)  # 匹配PP系统开发单号
+            else:
+                dev_match = re.findall('(.*)', dir_name)  # 非PP系统开发单号
             if len(dev_match) > 0:
                 child_dir = os.path.join(self.working_path, dir_name)
                 if os.path.isfile(child_dir):
                     continue
                 else:
-                    # dev_date, dev_sn = dev_match[0]  # 匹配PP系统开发单号
-                    dev_date = dev_match[0]  # 非PP系统单号
+                    if dir_name.startswith('DR'):
+                        dev_date, dev_sn = dev_match[0]  # 匹配PP系统开发单号
+                    else:
+                        dev_date = dev_match[0]  # 非PP系统单号
+                        if re.match('20\d{,2}[0-1][0-9][0-3][0-9]', dev_date) is None:
+                            day_seconds = 10 * 24 * 60 * 60
+                            time_tuple = time.localtime(time.time() - day_seconds)
+                            dev_date = '{}{}{}'.format(time_tuple.tm_year, time_tuple.tm_mon, time_tuple.tm_mday)
                     self.child_working_path_dict[dir_name] = {'path': child_dir, 'date': dev_date}
         # print('self.child_working_path_dict', self.child_working_path_dict)
 
