@@ -79,7 +79,7 @@ class SVN(object):
                         if re.match('20\d{,2}[0-1][0-9][0-3][0-9]', dev_date) is None:
                             day_seconds = 10 * 24 * 60 * 60
                             time_tuple = time.localtime(time.time() - day_seconds)
-                            dev_date = '{}{}{}'.format(time_tuple.tm_year, time_tuple.tm_mon, time_tuple.tm_mday)
+                            dev_date = time.strftime("%Y%m%d", time_tuple)
                     self.child_working_path_dict[dir_name] = {'path': child_dir, 'date': dev_date}
         # print('self.child_working_path_dict', self.child_working_path_dict)
 
