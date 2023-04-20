@@ -34,9 +34,10 @@ def insertJenkinsRelease(itm, jenkinsjob, svn_revision, svn_path, promotenumber,
     # 记录发布基本信息
     sql_insert = """insert into JENKINSRELEASE(ITM,JENKINSJOB,SVN_REVISION,SVN_PATH,PROMOTENUMBER,JENKINSBUILDNUMBER,PATCHNUMBER,TESTER,DATE,MODULE,IMGID)   select '%s','%s','%s','%s','%s','%s','%s','%s',now(),'%s','%s' from dual"""
     try:
-        cur.execute(sql_insert % (
+        exe_sql = sql_insert % (
             itm, jenkinsjob, svn_revision, svn_path, promotenumber, jenkinsbuildnumber, patchnumber, tester, module,
-            imgid))
+            imgid)
+        cur.execute(exe_sql)
         db.commit()
     except Exception as e:
         db.rollback()

@@ -77,7 +77,7 @@ class SVN(object):
                     else:
                         dev_date = dev_match[0]  # 非PP系统单号
                         if re.match('20\d{,2}[0-1][0-9][0-3][0-9]', dev_date) is None:
-                            day_seconds = 10 * 24 * 60 * 60
+                            day_seconds = 30 * 24 * 60 * 60
                             time_tuple = time.localtime(time.time() - day_seconds)
                             dev_date = time.strftime("%Y%m%d", time_tuple)
                     self.child_working_path_dict[dir_name] = {'path': child_dir, 'date': dev_date}
@@ -149,7 +149,7 @@ class SVN(object):
             changelist = value.get('changelist')
             for path in changelist:
                 print(path)
-                flag, svn_path = re.findall('   ([MDA]) /(\S*)', path)[0]  # , flags=re.DOTALL
+                flag, svn_path = re.findall('   ([MDAR]) /(\S*)', path)[0]  # , flags=re.DOTALL
                 for project_name in self.project_name_list:
                     try:
                         project_name_index = svn_path.index(project_name)
@@ -169,20 +169,22 @@ class SVN(object):
         :return:
         """
         for project_name, flag_path in project_dict.items():
-            temp_dict = {'AM': [], 'D': []}
+            temp_dict = {'AMR': [], 'D': []}
             for flag, path in flag_path:
+                if path.count('/{}/'.format(project_name)) == 0:  # 路径中没有项目名称的路径剔除
+                    continue
                 if flag == 'D':  # 当标志位删除时候从AM队列中删除对应的文件路径
                     try:
-                        temp_dict.get('AM').remove(path)
+                        temp_dict.get('AMR').remove(path)
                     except ValueError as e:
                         temp_dict.get(flag).append(path)
                         continue
                 else:  # 新增和变更的文件放到一起
-                    temp_dict.get('AM').append(path)
+                    temp_dict.get('AMR').append(path)
             text = ''
             for temp_key, temp_value in temp_dict.items():
-                if temp_key == 'AM':
-                    text += '#新增变更文件\n' + '\n'.join(set(temp_value)) + '\n\n'
+                if temp_key == 'AMR':
+                    text += '#新增变更替换文件\n' + '\n'.join(set(temp_value)) + '\n\n'
                 elif temp_key == 'D':
                     text += '#删除文件\n#' + '#\n#'.join(set(temp_value)) + '\n\n'
             filename = '{}路径说明.txt'.format(project_name)

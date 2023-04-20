@@ -152,6 +152,7 @@ class PathFileCopy:
         if os.path.isfile(sfilename):
             if not os.path.exists(dfilePath):
                 os.makedirs(dfilePath)
+            print('拷贝文件{}>>>>{}'.format(sfilename, dfilename))
             shutil.copyfile(sfilename, dfilename)
         if os.path.isfile(dfilename):
             return True
