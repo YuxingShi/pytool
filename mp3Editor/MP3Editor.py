@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import requests
 from mutagen.mp3 import MP3
-from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TCON
+from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TCON, TEXT
 from mutagen.mp4 import MP4
 
 
@@ -79,6 +79,12 @@ class MP3InfoEditor:
         self.label_genre.pack(side='left', pady=5)
         self.entry_genre = tk.Entry(frame_right_r5)
         self.entry_genre.pack(side='left')
+        frame_right_r6 = tk.Frame(frame_middle)
+        frame_right_r6.pack(side='top', fill=tk.X)
+        self.label_lyric = tk.Label(frame_right_r6, text="歌词")
+        self.label_lyric.pack(side='top', pady=5)
+        self.entry_lyric = tk.Text(frame_right_r6)
+        self.entry_lyric.pack(side='top', fill=tk.BOTH)
         frame_right_bt = tk.Frame(frame_middle)
         frame_right_bt.pack(side=tk.BOTTOM, fill=tk.X)
         self.btn_save = tk.Button(frame_right_bt, text="保存", command=self.save_info)
@@ -179,6 +185,8 @@ class MP3InfoEditor:
                 tags['year'] = audio['TDRC'].text[0]
             if 'TCON' in audio:
                 tags['genre'] = audio['TCON'].text[0]
+            if 'TEXT' in audio:
+                tags['lyric'] = audio['TEXT'].text[0]
         elif file_path.lower().endswith('.m4a'):
             audio = MP4(file_path)
             if '\xa9nam' in audio:
@@ -242,6 +250,7 @@ class MP3InfoEditor:
             self.entry_album.delete(0, tk.END)
             self.entry_year.delete(0, tk.END)
             self.entry_genre.delete(0, tk.END)
+            self.entry_lyric.delete(1.0, tk.END)
             title = tags.get('title')
             if not title:
                 title = f_title
@@ -253,6 +262,7 @@ class MP3InfoEditor:
             self.entry_album.insert(tk.END, tags.get('album', ''))
             self.entry_year.insert(tk.END, tags.get('year', ''))
             self.entry_genre.insert(tk.END, tags.get('genre', ''))
+            self.entry_lyric.insert(1.0, tags.get('lyric', ''))
         except Exception as e:
             messagebox.showerror("错误", str(e))
 
