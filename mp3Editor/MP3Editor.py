@@ -10,6 +10,7 @@ import requests
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TCON, USLT
 from mutagen.mp4 import MP4
+from lxml import etree
 
 
 MAC_OS = False
@@ -195,13 +196,16 @@ class MP3InfoEditor:
 
     def get_song_information(self):
         title = self.entry_title.get().strip()
-        baike_url = quote('https://baike.baidu.com/item/{}'.format(title))
+        baike_url = 'https://baike.baidu.com/item/{}'.format(quote(title))
         html = self.request_internet(url=baike_url)
-        if MAC_OS:
-            cmds = 'open -a "Google Chrome" --args --new-tab {}'.format(baike_url)
-        else:
-            cmds = 'start {}'.format(baike_url)
-        subprocess.Popen(cmds, shell=True)
+        # 创建 lxml HTML 解析器
+        parser = etree.HTMLParser()
+        # 解析 HTML 内容
+        tree = etree.fromstring(html, parser)
+        # 通过 XPath 获取元素内容
+        polysemant_list = tree.xpath('/html/body/div[3]/div[1]/div[1]')
+        for child in polysemant_list:
+            print(child.text)
 
     @staticmethod
     def get_id3_tags(file_path: str):
