@@ -83,8 +83,8 @@ class MP3InfoEditor:
         frame_right_r6.pack(side='top', fill=tk.X)
         self.label_lyric = tk.Label(frame_right_r6, text="歌词")
         self.label_lyric.pack(side='top', pady=5)
-        self.entry_lyric = tk.Text(frame_right_r6)
-        self.entry_lyric.pack(side='top', fill=tk.BOTH)
+        self.text_lyric = tk.Text(frame_right_r6)
+        self.text_lyric.pack(side='top', fill=tk.BOTH)
         frame_right_bt = tk.Frame(frame_middle)
         frame_right_bt.pack(side=tk.BOTTOM, fill=tk.X)
         self.btn_save = tk.Button(frame_right_bt, text="保存", command=self.save_info)
@@ -250,7 +250,7 @@ class MP3InfoEditor:
             self.entry_album.delete(0, tk.END)
             self.entry_year.delete(0, tk.END)
             self.entry_genre.delete(0, tk.END)
-            self.entry_lyric.delete(1.0, tk.END)
+            self.text_lyric.delete(1.0, tk.END)
             title = tags.get('title')
             if not title:
                 title = f_title
@@ -262,7 +262,7 @@ class MP3InfoEditor:
             self.entry_album.insert(tk.END, tags.get('album', ''))
             self.entry_year.insert(tk.END, tags.get('year', ''))
             self.entry_genre.insert(tk.END, tags.get('genre', ''))
-            self.entry_lyric.insert(1.0, tags.get('lyric', ''))
+            self.text_lyric.insert(1.0, tags.get('lyric', ''))
         except Exception as e:
             messagebox.showerror("错误", str(e))
 
@@ -296,6 +296,8 @@ class MP3InfoEditor:
                 audio['TDRC'] = TDRC(encoding=3, text=tags['year'])
             if 'genre' in tags:
                 audio['TCON'] = TCON(encoding=3, text=tags['genre'])
+            if 'lyric' in tags:
+                audio['TEXT'] = TEXT(encoding=3, text=tags['lyric'])
             audio.save(file_path)
         elif file_path.lower().endswith('.m4a'):
             audio = MP4()
@@ -322,6 +324,7 @@ class MP3InfoEditor:
             tags['album'] = self.entry_album.get().strip()
             tags['year'] = self.entry_year.get().strip()
             tags['genre'] = self.entry_genre.get().strip()
+            tags['lyric'] = self.text_lyric.get(1.0, tk.END).strip()
             self.write_id3_tags(self.cur_file_name, tags)
             messagebox.showinfo("成功", "信息保存成功！")
         except Exception as e:
