@@ -1,12 +1,22 @@
 # coding: utf-8
 import os
+import re
 import subprocess
+import sys
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
+from urllib.parse import quote
 import requests
 from mutagen.mp3 import MP3
-from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TCON, TEXT
+from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TCON, USLT
 from mutagen.mp4 import MP4
+
+
+MAC_OS = False
+MOUSE_RIGHT_BUTTON = '<Button-3>'
+if sys.platform == 'darwin':
+    MAC_OS = True
+    MOUSE_RIGHT_BUTTON = '<Button-2>'
 
 
 class MP3InfoEditor:
@@ -33,7 +43,7 @@ class MP3InfoEditor:
         self.treeview.pack(side='left', fill=tk.BOTH, expand=True)
         self.treeview.bind("<<TreeviewSelect>>", self.on_treeview_select)
         # 绑定右击事件，显示上下文菜单
-        self.treeview.bind("<Button-3>", self.treeview_context_menu_callback)
+        self.treeview.bind(MOUSE_RIGHT_BUTTON, self.treeview_context_menu_callback)
         # treeview 垂直滚动条
         self.treeview_scrollbar_y = ttk.Scrollbar(frame_treeview, orient=tk.VERTICAL, command=self.treeview.yview)
         self.treeview_scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
@@ -95,7 +105,8 @@ class MP3InfoEditor:
         self._init_data()
 
     def _init_data(self):
-        self.load_directory('F:\mp3')
+        # self.load_directory('F:\mp3')
+        self.load_directory('/Users/shiyx/Music/Music/Media.localized/Music')
 
     def select_directory(self):
         self.cur_directory = filedialog.askdirectory()
@@ -159,15 +170,38 @@ class MP3InfoEditor:
 
     def open_file_directory(self):
         path, _ = os.path.split(self.cur_file_name)
-        cmds = 'start {}'.format(path)
+        if MAC_OS:
+            cmds = 'open "{}"'.format(path)
+        else:
+            cmds = 'start "{}"'.format(path)
         subprocess.Popen(cmds, shell=True)
 
-    def get_song_information(self):
-        _, filename = os.path.split(self.cur_file_name)
-        baike_url = 'https://baike.baidu.com/item/{}'.format(filename.split('.m')[0].replace(' ', ''))
-        # requests.get()
+    @staticmethod
+    def request_internet(url: str, headers=None):
+        resp = requests.get(url, headers=headers, verify=False)
+        if resp.status_code == 200:
+            return resp.text
 
-        subprocess.Popen('start {}'.format(baike_url.replace(' ', '')), shell=True)
+    @staticmethod
+    def get_song_info(html_text: str) -> list:
+        # pattern_publish_date = re.compile('''>发行日期</dt>\n<dd[^>]+>\n(.*?)\n</dd>''', flags=re.DOTALL)
+        # pattern_belong_album = re.compile('''>所属专辑</dt>\n<dd[^>]+>\n(.*?)\n</dd>''', flags=re.DOTALL)
+        pattern = re.compile('''>所属专辑</dt>\n<dd[^>]+>\n(.*?)\n</dd>.*?>发行日期</dt>\n<dd[^>]+>\n(.*?)\n</dd>''',
+                             flags=re.DOTALL)
+        # publish_date = pattern_publish_date.findall(html_text)
+        # belong_album = pattern_belong_album.findall(html_text)
+        song_info = pattern.findall(html_text)
+        return song_info
+
+    def get_song_information(self):
+        title = self.entry_title.get().strip()
+        baike_url = quote('https://baike.baidu.com/item/{}'.format(title))
+        html = self.request_internet(url=baike_url)
+        if MAC_OS:
+            cmds = 'open -a "Google Chrome" --args --new-tab {}'.format(baike_url)
+        else:
+            cmds = 'start {}'.format(baike_url)
+        subprocess.Popen(cmds, shell=True)
 
     @staticmethod
     def get_id3_tags(file_path: str):
@@ -185,8 +219,8 @@ class MP3InfoEditor:
                 tags['year'] = audio['TDRC'].text[0]
             if 'TCON' in audio:
                 tags['genre'] = audio['TCON'].text[0]
-            if 'TEXT' in audio:
-                tags['lyric'] = audio['TEXT'].text[0]
+            if 'USLT::XXX' in audio:
+                tags['lyric'] = audio['USLT::XXX'].text
         elif file_path.lower().endswith('.m4a'):
             audio = MP4(file_path)
             if '\xa9nam' in audio:
@@ -297,7 +331,7 @@ class MP3InfoEditor:
             if 'genre' in tags:
                 audio['TCON'] = TCON(encoding=3, text=tags['genre'])
             if 'lyric' in tags:
-                audio['TEXT'] = TEXT(encoding=3, text=tags['lyric'])
+                audio['USLT::XXX'] = USLT(encoding=3, text=tags['lyric'])
             audio.save(file_path)
         elif file_path.lower().endswith('.m4a'):
             audio = MP4()
