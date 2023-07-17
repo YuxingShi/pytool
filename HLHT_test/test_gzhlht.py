@@ -11,10 +11,11 @@ class TestHlht:
 
     def setup(self):
         # self.db = Oracle(user='CRTMIS', passwd='CRTMIS', tsn='10.168.6.33:1521/CRTMISGZ')
-        self.db = Oracle(user='CRTMIS', passwd='JLCRTMIS', tsn='10.168.1.54:1521/JLCS')
+        # self.db = Oracle(user='CRTMIS', passwd='JLCRTMIS', tsn='10.168.1.54:1521/JLCS')
         # self.db = Oracle(user='CRTMIS', passwd='CRTMIS', tsn='10.168.7.54:1521/HNYZ')
-        # self.db = Oracle(user='HYT2LINEFJ', passwd='HYT2LINEFJ', tsn='10.168.7.79:1521/FJYZ')
-        sql = '''select * from TF_BS_HLHTDATA_EX '''
+        self.db = Oracle(user='HYT2LINEFJ', passwd='HYT2LINEFJ', tsn='10.168.7.79:1521/FJYZ')
+        # sql = '''select * from TF_BS_HLHTDATA_EX '''
+        sql = '''select * from TF_BS_HLHTDATA_EX where INTF_CODE like 'F%' '''
         self.test_items = self.db.execute_sql(sql, field_title=False)
 
     def teardown(self):
@@ -50,13 +51,13 @@ class TestHlht:
         success_count = 0
         failure_count = 0
         for item in self.test_items:
-            intf_name, intf_code, intf_sql = item[0], item[1], str(item[3])
+            intf_name, intf_code, intf_sql = item[0], item[1], str(item[3]).replace('&gt;', '>')
             print('开始校验', intf_name, intf_code, 'sql语句执行结果')
             if intf_sql is None or intf_sql == '':
                 print('校验结果', intf_name, intf_code, 'sql语句未配置！')
                 failure_count += 1
                 continue
-            data_tup = self.db.execute_sql(intf_sql, field_title=False, rownum=5000)
+            data_tup = self.db.execute_sql(intf_sql, field_title=False)  # , rownum=5000000
             if data_tup is None:
                 print('校验结果', intf_name, intf_code, 'sql:\n{}\n查询报错！'.format(intf_sql))
                 failure_count += 1
