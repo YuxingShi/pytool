@@ -133,7 +133,7 @@ class MP3InfoEditor:
         self.text_lyric.pack(side='top', fill=tk.BOTH)
         frame_right_bt = tk.Frame(frame_middle)
         frame_right_bt.pack(side=tk.BOTTOM, fill=tk.X)
-        self.btn_save = tk.Button(frame_right_bt, text="保存", command=self.save_info)
+        self.btn_save = ttk.Button(frame_right_bt, text="保存", command=self.save_info)
         self.btn_save.pack(side='right', pady=10)
         # # 右边Frame
         # frame_right = tk.LabelFrame(self.root, text='浏览器')
@@ -415,20 +415,33 @@ class MP3InfoEditor:
                 audio['gnre'] = [tags['genre']]
             audio.save(file_path)
 
+    @staticmethod
+    def file_rename(src_file, dst_file):
+        if not os.path.exists(dst_file):  # 如果文件存在则不重命名
+            shutil.copy2(src_file, dst_file)
+            os.remove(src_file)
+
     def save_info(self):
         try:
             if not self.cur_file_name:
                 messagebox.showerror("提示", '未选择文件！')
                 return
+            file_path, _ = os.path.split(self.cur_file_name)
+            _, ext = os.path.splitext(self.cur_file_name)
             tags = dict()
-            tags['title'] = self.entry_title.get().strip()
-            tags['artist'] = self.entry_artist.get().strip()
+            title = self.entry_title.get().strip()
+            artist = self.entry_artist.get().strip()
+            tags['title'] = title
+            tags['artist'] = artist
             tags['album'] = self.entry_album.get().strip()
             tags['year'] = self.entry_year.get().strip()
             tags['genre'] = self.entry_genre.get().strip()
             tags['lyric'] = self.text_lyric.get(1.0, tk.END).strip()
+            new_filename = os.path.join(file_path, '{}-{}{}'.format(title, artist, ext))
+            self.file_rename(self.cur_file_name, new_filename)
             self.write_id3_tags(self.cur_file_name, tags)
             messagebox.showinfo("成功", "信息保存成功！")
+            self.load_directory(self.root_path)
         except Exception as e:
             messagebox.showerror("错误", str(e))
 
