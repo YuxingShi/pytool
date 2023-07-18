@@ -1,16 +1,16 @@
 # coding: utf-8
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox, simpledialog
 from urllib.parse import quote
 import requests
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TCON, USLT
 from mutagen.mp4 import MP4
-from lxml import etree
 
 
 MAC_OS = False
@@ -20,9 +20,39 @@ if sys.platform == 'darwin':
     MOUSE_RIGHT_BUTTON = '<Button-2>'
 
 
+headers_str = '''
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
+Accept-Encoding: gzip, deflate, br
+Accept-Language: zh-CN,zh;q=0.9
+Connection: keep-alive
+Host: baike.baidu.com
+sec-ch-ua: "Google Chrome";v="107", "Chromium";v="107", "Not=A?Brand";v="24"
+sec-ch-ua-mobile: ?0
+sec-ch-ua-platform: "Windows"
+Sec-Fetch-Dest: document
+Sec-Fetch-Mode: navigate
+Sec-Fetch-Site: none
+Sec-Fetch-User: ?1
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36
+'''
+
+
+def get_dict_by_sep(raw_str: str, sep: str) -> dict:
+    result = dict()
+    items = re.findall('(.+){}(.+)\n'.format(sep), raw_str)
+    for key, value in items:
+        result[key] = value
+    print(result)
+    return result
+
+
 class MP3InfoEditor:
     cur_directory = None
     cur_file_name = None
+    headers = get_dict_by_sep(headers_str, ': ')
+    root_path = r'F:\mp3'
+    # root_path = '/Users/shiyx/Music/Music/Media.localized/Music'
 
     def __init__(self):
         self.root = tk.Tk()
@@ -34,6 +64,9 @@ class MP3InfoEditor:
         self.menu_bar.add_cascade(label="文件", menu=self.file_menu)
         self.file_menu.add_command(label="选择目录", command=self.select_directory)
         self.file_menu.add_command(label="选择文件", command=self.select_file)
+        self.tool_menu = tk.Menu(self.menu_bar, tearoff=False)
+        self.menu_bar.add_cascade(label="工具", menu=self.tool_menu)
+        self.tool_menu.add_command(label="目录整理", command=self.tidy_directory)
 
         # 左Frame
         frame_left = tk.LabelFrame(self.root, text='文件列表')
@@ -106,8 +139,7 @@ class MP3InfoEditor:
         self._init_data()
 
     def _init_data(self):
-        # self.load_directory('F:\mp3')
-        self.load_directory('/Users/shiyx/Music/Music/Media.localized/Music')
+        self.load_directory(self.root_path)
 
     def select_directory(self):
         self.cur_directory = filedialog.askdirectory()
@@ -119,18 +151,31 @@ class MP3InfoEditor:
         if file_path:
             self.load_file(file_path)
 
+    def tidy_directory(self):
+        """
+        根据输入的目录名称创建目录，并将该目录下（不递归）含有目录名称的文件移动昂到该目录下
+        :return:
+        """
+        dir_name = simpledialog.askstring('目录整理', '请输入要创建的目录名称：', )
+        if dir_name != '':
+            dst_dir_name = os.path.join(self.root_path, dir_name)
+            os.mkdir(dst_dir_name)
+            file_path_list = [os.path.join(self.root_path, filename) for filename in os.listdir(self.root_path) if filename.count(dir_name) > 0]
+            for file_path in file_path_list:
+                if os.path.isfile(file_path):
+                    shutil.move(file_path, dst_dir_name)
+        self.load_directory(self.root_path)
+
     def load_directory(self, path, parent=""):
         if not parent:
             self.treeview.delete(*self.treeview.get_children())
             # 添加根节点
             root_node = self.treeview.insert("", tk.END, text=path, open=True)
             parent = root_node
-
         # 遍历目录下的子目录和文件
         for item in sorted(os.listdir(path)):
             item_path = os.path.join(path, item)
             is_dir = os.path.isdir(item_path)
-
             if is_dir:
                 # 添加子目录节点
                 dir_node = self.treeview.insert(parent, tk.END, text=item, open=False)
@@ -174,7 +219,8 @@ class MP3InfoEditor:
         if MAC_OS:
             cmds = 'open "{}"'.format(path)
         else:
-            cmds = 'start "{}"'.format(path)
+            cmds = 'start {}'.format(path)
+            print(cmds)
         subprocess.Popen(cmds, shell=True)
 
     @staticmethod
@@ -184,28 +230,31 @@ class MP3InfoEditor:
             return resp.text
 
     @staticmethod
-    def get_song_info(html_text: str) -> list:
-        # pattern_publish_date = re.compile('''>发行日期</dt>\n<dd[^>]+>\n(.*?)\n</dd>''', flags=re.DOTALL)
-        # pattern_belong_album = re.compile('''>所属专辑</dt>\n<dd[^>]+>\n(.*?)\n</dd>''', flags=re.DOTALL)
-        pattern = re.compile('''>所属专辑</dt>\n<dd[^>]+>\n(.*?)\n</dd>.*?>发行日期</dt>\n<dd[^>]+>\n(.*?)\n</dd>''',
-                             flags=re.DOTALL)
-        # publish_date = pattern_publish_date.findall(html_text)
-        # belong_album = pattern_belong_album.findall(html_text)
-        song_info = pattern.findall(html_text)
-        return song_info
+    def get_song_info_dict(html_text: str) -> dict:
+        result = dict()
+        pattern_publish_date = re.compile('''>发行日期</dt>\n<dd[^>]+>\n*(.*?)\n*</dd>''', flags=re.DOTALL)
+        pattern_belong_album = re.compile('''>所属专辑</dt>\n<dd[^>]+>\n*(.*?)\n*</dd>''', flags=re.DOTALL)
+        pattern_genre = re.compile('''>音乐风格</dt>\n<dd[^>]+>\n*(.*?)\n*</dd>''', flags=re.DOTALL)
+        publish_date = pattern_publish_date.findall(html_text)
+        belong_album = pattern_belong_album.findall(html_text)
+        genre = pattern_genre.findall(html_text)
+        result['year'] = publish_date
+        result['album'] = belong_album
+        result['genre'] = genre
+        return result
 
     def get_song_information(self):
         title = self.entry_title.get().strip()
-        baike_url = 'https://baike.baidu.com/item/{}'.format(quote(title))
-        html = self.request_internet(url=baike_url)
-        # 创建 lxml HTML 解析器
-        parser = etree.HTMLParser()
-        # 解析 HTML 内容
-        tree = etree.fromstring(html, parser)
-        # 通过 XPath 获取元素内容
-        polysemant_list = tree.xpath('/html/body/div[3]/div[1]/div[1]')
-        for child in polysemant_list:
-            print(child.text)
+        artist = self.entry_artist.get().strip()
+        kw = '{} {}'.format(title, artist)
+        # baike_url = 'https://baike.baidu.com/item/{}'.format(quote(title))
+        baike_url = 'https://www.baidu.com/s?wd={}'.format(quote(kw))
+        if MAC_OS:
+            cmds = 'open {}'.format(baike_url)
+        else:
+            cmds = 'start {}'.format(baike_url)
+        subprocess.Popen(cmds, shell=True)
+        # html = self.request_internet(url=baike_url, headers=self.headers)
 
     @staticmethod
     def get_id3_tags(file_path: str):
