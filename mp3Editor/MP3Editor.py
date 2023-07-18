@@ -66,7 +66,7 @@ class MP3InfoEditor:
         self.file_menu.add_command(label="选择文件", command=self.select_file)
         self.tool_menu = tk.Menu(self.menu_bar, tearoff=False)
         self.menu_bar.add_cascade(label="工具", menu=self.tool_menu)
-        self.tool_menu.add_command(label="目录整理", command=self.tidy_directory)
+        self.tool_menu.add_command(label="目录整理", command=self.ask_tidy_directory)
 
         # 左Frame
         frame_left = tk.LabelFrame(self.root, text='文件列表')
@@ -105,6 +105,8 @@ class MP3InfoEditor:
         self.label_artist.pack(side='left', pady=5)
         self.entry_artist = tk.Entry(frame_right_r2)
         self.entry_artist.pack(side='left')
+        self.button_artist = ttk.Button(frame_right_r2, text='整理目录', command=self.artist_tidy_directory)
+        self.button_artist.pack(side='left')
         frame_right_r3 = tk.Frame(frame_middle)
         frame_right_r3.pack(side='top', fill=tk.X)
         self.label_album = tk.Label(frame_right_r3, text="专辑:")
@@ -151,20 +153,33 @@ class MP3InfoEditor:
         if file_path:
             self.load_file(file_path)
 
-    def tidy_directory(self):
+    def ask_tidy_directory(self):
         """
         根据输入的目录名称创建目录，并将该目录下（不递归）含有目录名称的文件移动昂到该目录下
         :return:
         """
         dir_name = simpledialog.askstring('目录整理', '请输入要创建的目录名称：', )
+        self._tidy_directory(dir_name)
+        self.load_directory(self.root_path)
+
+    def artist_tidy_directory(self):
+        """
+        根据输入的目录名称创建目录，并将该目录下（不递归）含有目录名称的文件移动昂到该目录下
+        :return:
+        """
+        dir_name = self.entry_artist.get().strip()
+        self._tidy_directory(dir_name)
+        self.load_directory(self.root_path)
+
+    def _tidy_directory(self, dir_name: str):
         if dir_name != '':
             dst_dir_name = os.path.join(self.root_path, dir_name)
-            os.mkdir(dst_dir_name)
+            if not os.path.exists(dst_dir_name):
+                os.mkdir(dst_dir_name)
             file_path_list = [os.path.join(self.root_path, filename) for filename in os.listdir(self.root_path) if filename.count(dir_name) > 0]
             for file_path in file_path_list:
                 if os.path.isfile(file_path):
                     shutil.move(file_path, dst_dir_name)
-        self.load_directory(self.root_path)
 
     def load_directory(self, path, parent=""):
         if not parent:
