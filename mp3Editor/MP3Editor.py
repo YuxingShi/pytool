@@ -7,9 +7,11 @@ import sys
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
 from urllib.parse import quote
+
+import album as album
 import requests
 from mutagen.mp3 import MP3
-from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TCON, USLT
+from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TCON, USLT, _util
 from mutagen.mp4 import MP4
 
 
@@ -66,7 +68,6 @@ class MP3InfoEditor:
         self.file_menu.add_command(label="选择文件", command=self.select_file)
         self.tool_menu = tk.Menu(self.menu_bar, tearoff=False)
         self.menu_bar.add_cascade(label="工具", menu=self.tool_menu)
-        self.tool_menu.add_command(label="目录整理", command=self.ask_tidy_directory)
 
         # 左Frame
         frame_left = tk.LabelFrame(self.root, text='文件列表')
@@ -98,15 +99,15 @@ class MP3InfoEditor:
         self.label_title = tk.Label(frame_right_r1, text="标题:")
         self.label_title.pack(side='left', pady=5)
         self.entry_title = tk.Entry(frame_right_r1)
-        self.entry_title.pack(side='left')
+        self.entry_title.pack(side='left', fill=tk.X, expand=True)
+        self.btn_save = ttk.Button(frame_right_r1, text="保存标签", command=self.save_info)
+        self.btn_save.pack(side='left', pady=5)
         frame_right_r2 = tk.Frame(frame_middle)
         frame_right_r2.pack(side='top', fill=tk.X)
         self.label_artist = tk.Label(frame_right_r2, text="歌手:")
         self.label_artist.pack(side='left', pady=5)
         self.entry_artist = tk.Entry(frame_right_r2)
         self.entry_artist.pack(side='left')
-        self.button_artist = ttk.Button(frame_right_r2, text='整理目录', command=self.artist_tidy_directory)
-        self.button_artist.pack(side='left')
         frame_right_r3 = tk.Frame(frame_middle)
         frame_right_r3.pack(side='top', fill=tk.X)
         self.label_album = tk.Label(frame_right_r3, text="专辑:")
@@ -133,8 +134,7 @@ class MP3InfoEditor:
         self.text_lyric.pack(side='top', fill=tk.BOTH)
         frame_right_bt = tk.Frame(frame_middle)
         frame_right_bt.pack(side=tk.BOTTOM, fill=tk.X)
-        self.btn_save = ttk.Button(frame_right_bt, text="保存", command=self.save_info)
-        self.btn_save.pack(side='right', pady=10)
+
         # # 右边Frame
         # frame_right = tk.LabelFrame(self.root, text='浏览器')
         # frame_right.pack(side='right', fill=tk.BOTH, expand=True)
@@ -147,39 +147,20 @@ class MP3InfoEditor:
         self.cur_directory = filedialog.askdirectory()
         if self.cur_directory:
             self.load_directory(self.cur_directory)
+            self._init_compoent_data()
 
     def select_file(self):
         file_path = filedialog.askopenfilename()
         if file_path:
             self.load_file(file_path)
+            self._init_compoent_data()
 
-    def ask_tidy_directory(self):
-        """
-        根据输入的目录名称创建目录，并将该目录下（不递归）含有目录名称的文件移动昂到该目录下
-        :return:
-        """
-        dir_name = simpledialog.askstring('目录整理', '请输入要创建的目录名称：', )
-        self._tidy_directory(dir_name)
-        self.load_directory(self.root_path)
-
-    def artist_tidy_directory(self):
-        """
-        根据输入的目录名称创建目录，并将该目录下（不递归）含有目录名称的文件移动昂到该目录下
-        :return:
-        """
-        dir_name = self.entry_artist.get().strip()
-        self._tidy_directory(dir_name)
-        self.load_directory(self.root_path)
-
-    def _tidy_directory(self, dir_name: str):
-        if dir_name != '':
-            dst_dir_name = os.path.join(self.root_path, dir_name)
-            if not os.path.exists(dst_dir_name):
-                os.mkdir(dst_dir_name)
-            file_path_list = [os.path.join(self.root_path, filename) for filename in os.listdir(self.root_path) if filename.count(dir_name) > 0]
-            for file_path in file_path_list:
-                if os.path.isfile(file_path):
-                    shutil.move(file_path, dst_dir_name)
+    @staticmethod
+    def _create_directorys(dirs: list):
+        dst_dir_name = os.path.join(*dirs)
+        if not os.path.exists(dst_dir_name):
+            os.makedirs(dst_dir_name)
+        return dst_dir_name
 
     def load_directory(self, path, parent=""):
         if not parent:
@@ -273,100 +254,108 @@ class MP3InfoEditor:
 
     @staticmethod
     def get_id3_tags(file_path: str):
-        tags = {}
-        audio = None
-        if file_path.lower().endswith('.mp3'):
-            audio = ID3(file_path)
-            if 'TIT2' in audio:
-                tags['title'] = audio['TIT2'].text[0]
-            if 'TPE1' in audio:
-                tags['artist'] = audio['TPE1'].text[0]
-            if 'TALB' in audio:
-                tags['album'] = audio['TALB'].text[0]
-            if 'TDRC' in audio:
-                tags['year'] = audio['TDRC'].text[0]
-            if 'TCON' in audio:
-                tags['genre'] = audio['TCON'].text[0]
-            if 'USLT::XXX' in audio:
-                tags['lyric'] = audio['USLT::XXX'].text
-        elif file_path.lower().endswith('.m4a'):
-            audio = MP4(file_path)
-            if '\xa9nam' in audio:
-                tags['title'] = audio['\xa9nam'][0]
-            if '\xa9ART' in audio:
-                tags['artist'] = audio['\xa9ART'][0]
-            if '\xa9alb' in audio:
-                tags['album'] = audio['\xa9alb'][0]
-            if '\xa9day' in audio:
-                tags['year'] = audio['\xa9day'][0]
-            if 'gnre' in audio:
-                tags['genre'] = audio['gnre'][0]
-        print('audio', audio)
+        tags = {
+            'title': '',
+            'artist': '未知',
+            'album': '未知',
+            'year': '未知',
+            'genre': '未知',
+            'lyric': '未知'
+        }
+        try:
+            if file_path.lower().endswith('.mp3'):
+                audio = ID3(file_path)
+                if 'TIT2' in audio:
+                    tags['title'] = audio['TIT2'].text[0]
+                if 'TPE1' in audio:
+                    tags['artist'] = audio['TPE1'].text[0]
+                if 'TALB' in audio:
+                    tags['album'] = audio['TALB'].text[0]
+                if 'TDRC' in audio:
+                    tags['year'] = audio['TDRC'].text[0]
+                if 'TCON' in audio:
+                    tags['genre'] = audio['TCON'].text[0]
+                if 'USLT::XXX' in audio:
+                    tags['lyric'] = audio['USLT::XXX'].text
+            elif file_path.lower().endswith('.m4a'):
+                audio = MP4(file_path)
+                if '\xa9nam' in audio:
+                    tags['title'] = audio['\xa9nam'][0]
+                if '\xa9ART' in audio:
+                    tags['artist'] = audio['\xa9ART'][0]
+                if '\xa9alb' in audio:
+                    tags['album'] = audio['\xa9alb'][0]
+                if '\xa9day' in audio:
+                    tags['year'] = audio['\xa9day'][0]
+                if 'gnre' in audio:
+                    tags['genre'] = audio['gnre'][0]
+        except _util.ID3NoHeaderError as e:
+            print(str(e))
         return tags
 
-    def get_audio_tags(self, file_path: str):
+    @staticmethod
+    def get_audio_tags(file_path: str):
         """
         获取音频文件的标签信息
         :param file_path:
         :return:
         """
         tags = {}
-        if file_path.lower().endswith('.mp3'):
-            audio = MP3(file_path)
-            if 'title' in audio.tags:  # 标题
-                tags['title'] = audio.tags['title'][0]
-            if 'artist' in audio.tags:  # 艺术家
-                tags['artist'] = audio.tags['artist'][0]
-            if 'album' in audio.tags:  # 专辑
-                tags['album'] = audio.tags['album'][0]
-            if 'year' in audio.tags:  # 年份
-                tags['year'] = audio.tags['year'][0]
-            if 'genre' in audio.tags:  # 流派
-                tags['genre'] = audio.tags['genre'][0]
-        elif file_path.lower().endswith('.m4a'):
-            audio = MP4(file_path)
-            if '\xa9nam' in audio.tags:
-                tags['title'] = audio.tags['\xa9nam'][0]
-            if '\xa9ART' in audio.tags:
-                tags['artist'] = audio.tags['\xa9ART'][0]
-            if '\xa9alb' in audio.tags:
-                tags['album'] = audio.tags['\xa9alb'][0]
-            if '\xa9day' in audio.tags:
-                tags['year'] = audio.tags['\xa9day'][0]
-            if 'gnre' in audio.tags:
-                tags['genre'] = audio.tags['gnre'][0]
+        try:
+            if file_path.lower().endswith('.mp3'):
+                audio = MP3(file_path)
+                if 'title' in audio.tags:  # 标题
+                    tags['title'] = audio.tags['title'][0]
+                if 'artist' in audio.tags:  # 艺术家
+                    tags['artist'] = audio.tags['artist'][0]
+                if 'album' in audio.tags:  # 专辑
+                    tags['album'] = audio.tags['album'][0]
+                if 'year' in audio.tags:  # 年份
+                    tags['year'] = audio.tags['year'][0]
+                if 'genre' in audio.tags:  # 流派
+                    tags['genre'] = audio.tags['genre'][0]
+            elif file_path.lower().endswith('.m4a'):
+                audio = MP4(file_path)
+                if '\xa9nam' in audio.tags:
+                    tags['title'] = audio.tags['\xa9nam'][0]
+                if '\xa9ART' in audio.tags:
+                    tags['artist'] = audio.tags['\xa9ART'][0]
+                if '\xa9alb' in audio.tags:
+                    tags['album'] = audio.tags['\xa9alb'][0]
+                if '\xa9day' in audio.tags:
+                    tags['year'] = audio.tags['\xa9day'][0]
+                if 'gnre' in audio.tags:
+                    tags['genre'] = audio.tags['gnre'][0]
+        except Exception as e:
+            print(str(e))
         return tags
+    
+    def _init_compoent_data(self):
+        """
+        清理界面上所有信息
+        :return:
+        """
+        self.entry_title.delete(0, tk.END)
+        self.entry_artist.delete(0, tk.END)
+        self.entry_album.delete(0, tk.END)
+        self.entry_year.delete(0, tk.END)
+        self.entry_genre.delete(0, tk.END)
+        self.text_lyric.delete(1.0, tk.END)
 
     def load_mp3_info(self, filename: str):
-        try:
-            tags = self.get_id3_tags(filename)
-            file_path, _ = os.path.splitext(filename)
-            _, file_name = os.path.split(file_path)
-            if file_name.count('-') == 1:
-                f_title, f_artist = file_name.split('-')
-            else:
-                f_title, f_artist = file_name, ''
-            print(tags)
-            self.entry_title.delete(0, tk.END)
-            self.entry_artist.delete(0, tk.END)
-            self.entry_album.delete(0, tk.END)
-            self.entry_year.delete(0, tk.END)
-            self.entry_genre.delete(0, tk.END)
-            self.text_lyric.delete(1.0, tk.END)
-            title = tags.get('title')
-            if not title:
-                title = f_title
-            artist = tags.get('artist')
-            if not artist:
-                artist = f_artist
-            self.entry_title.insert(tk.END, title)
-            self.entry_artist.insert(tk.END, artist)
-            self.entry_album.insert(tk.END, tags.get('album', ''))
-            self.entry_year.insert(tk.END, tags.get('year', ''))
-            self.entry_genre.insert(tk.END, tags.get('genre', ''))
-            self.text_lyric.insert(1.0, tags.get('lyric', ''))
-        except Exception as e:
-            messagebox.showerror("错误", str(e))
+        tags = self.get_id3_tags(filename)
+        file_path, _ = os.path.splitext(filename)
+        _, file_name = os.path.split(file_path)
+        self._init_compoent_data()
+        title = tags.get('title')
+        if not title:
+            title = file_name
+        self.entry_title.insert(tk.END, title)
+        self.entry_artist.insert(tk.END, tags.get('artist', ''))
+        self.entry_album.insert(tk.END, tags.get('album', ''))
+        self.entry_year.insert(tk.END, tags.get('year', ''))
+        self.entry_genre.insert(tk.END, tags.get('genre', ''))
+        self.text_lyric.insert(1.0, tags.get('lyric', ''))
 
     @staticmethod
     def write_tags(file_path: str, tags: dict):
@@ -376,7 +365,6 @@ class MP3InfoEditor:
             for key, value in tags.items():
                 audio[key] = value
             audio.save()
-
         elif file_path.lower().endswith('.m4a'):
             audio = MP4(file_path)
             audio.delete()
@@ -386,64 +374,73 @@ class MP3InfoEditor:
 
     @staticmethod
     def write_id3_tags(file_path: str, tags: dict):
-        if file_path.lower().endswith('.mp3'):
-            audio = ID3()
-            if 'title' in tags:
-                audio['TIT2'] = TIT2(encoding=3, text=tags['title'])
-            if 'artist' in tags:
-                audio['TPE1'] = TPE1(encoding=3, text=tags['artist'])
-            if 'album' in tags:
-                audio['TALB'] = TALB(encoding=3, text=tags['album'])
-            if 'year' in tags:
-                audio['TDRC'] = TDRC(encoding=3, text=tags['year'])
-            if 'genre' in tags:
-                audio['TCON'] = TCON(encoding=3, text=tags['genre'])
-            if 'lyric' in tags:
-                audio['USLT::XXX'] = USLT(encoding=3, text=tags['lyric'])
-            audio.save(file_path)
-        elif file_path.lower().endswith('.m4a'):
-            audio = MP4()
-            if 'title' in tags:
-                audio['\xa9nam'] = [tags['title']]
-            if 'artist' in tags:
-                audio['\xa9ART'] = [tags['artist']]
-            if 'album' in tags:
-                audio['\xa9alb'] = [tags['album']]
-            if 'year' in tags:
-                audio['\xa9day'] = [tags['year']]
-            if 'genre' in tags:
-                audio['gnre'] = [tags['genre']]
-            audio.save(file_path)
+        try:
+            if file_path.lower().endswith('.mp3'):
+                audio = ID3()
+                if 'title' in tags:
+                    audio['TIT2'] = TIT2(encoding=3, text=tags['title'])
+                if 'artist' in tags:
+                    audio['TPE1'] = TPE1(encoding=3, text=tags['artist'])
+                if 'album' in tags:
+                    audio['TALB'] = TALB(encoding=3, text=tags['album'])
+                if 'year' in tags:
+                    audio['TDRC'] = TDRC(encoding=3, text=tags['year'])
+                if 'genre' in tags:
+                    audio['TCON'] = TCON(encoding=3, text=tags['genre'])
+                if 'lyric' in tags:
+                    audio['USLT::XXX'] = USLT(encoding=3, text=tags['lyric'])
+                audio.save(file_path)
+            elif file_path.lower().endswith('.m4a'):
+                audio = MP4()
+                if 'title' in tags:
+                    audio['\xa9nam'] = [tags['title']]
+                if 'artist' in tags:
+                    audio['\xa9ART'] = [tags['artist']]
+                if 'album' in tags:
+                    audio['\xa9alb'] = [tags['album']]
+                if 'year' in tags:
+                    audio['\xa9day'] = [tags['year']]
+                if 'genre' in tags:
+                    audio['gnre'] = [tags['genre']]
+                audio.save(file_path)
+            return  True
+        except Exception as e:
+            return False
 
     @staticmethod
     def file_rename(src_file, dst_file):
         if not os.path.exists(dst_file):  # 如果文件存在则不重命名
             shutil.copy2(src_file, dst_file)
             os.remove(src_file)
+            return True
+        else:
+            return False
 
     def save_info(self):
-        try:
-            if not self.cur_file_name:
-                messagebox.showerror("提示", '未选择文件！')
-                return
-            file_path, _ = os.path.split(self.cur_file_name)
-            _, ext = os.path.splitext(self.cur_file_name)
-            tags = dict()
-            title = self.entry_title.get().strip()
-            artist = self.entry_artist.get().strip()
-            tags['title'] = title
-            tags['artist'] = artist
-            tags['album'] = self.entry_album.get().strip()
-            tags['year'] = self.entry_year.get().strip()
-            tags['genre'] = self.entry_genre.get().strip()
-            tags['lyric'] = self.text_lyric.get(1.0, tk.END).strip()
-            new_filename = os.path.join(file_path, '{}-{}{}'.format(title, artist, ext))
-            self.file_rename(self.cur_file_name, new_filename)
-            self.write_id3_tags(self.cur_file_name, tags)
-            messagebox.showinfo("成功", "信息保存成功！")
+        if not self.cur_file_name:
+            messagebox.showerror("提示", '未选择文件！')
+            return
+        file_path, _ = os.path.split(self.cur_file_name)
+        _, ext = os.path.splitext(self.cur_file_name)
+        tags = dict()
+        title = self.entry_title.get().strip()
+        artist = self.entry_artist.get().strip()
+        album = self.entry_album.get().strip()
+        tags['title'] = title
+        tags['artist'] = artist
+        tags['album'] = album
+        tags['year'] = self.entry_year.get().strip()
+        tags['genre'] = self.entry_genre.get().strip()
+        tags['lyric'] = self.text_lyric.get(1.0, tk.END).strip()
+        if self.write_id3_tags(self.cur_file_name, tags):
+            messagebox.showinfo("提示", "IDV3标签信息保存成功！")
+            dst_path = self._create_directorys([self.root_path, artist, album])
+            new_filename = os.path.join(dst_path, '{}-{}{}'.format(title, artist, ext))
+            shutil.move(self.cur_file_name, new_filename)
             self.load_directory(self.root_path)
-        except Exception as e:
-            messagebox.showerror("错误", str(e))
+            self._init_compoent_data()
+        else:
+            messagebox.showinfo("提示", "IDV3标签信息保存失败！")
 
 
 if __name__ == "__main__":
