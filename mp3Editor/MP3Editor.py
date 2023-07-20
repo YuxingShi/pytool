@@ -5,10 +5,9 @@ import shutil
 import subprocess
 import sys
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, simpledialog
+from tkinter import ttk, filedialog, messagebox
 from urllib.parse import quote
 
-import album as album
 import requests
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TCON, USLT, _util
@@ -53,8 +52,8 @@ class MP3InfoEditor:
     cur_directory = None
     cur_file_name = None
     headers = get_dict_by_sep(headers_str, ': ')
-    root_path = r'F:\mp3'
-    # root_path = '/Users/shiyx/Music/Music/Media.localized/Music'
+    # root_path = r'F:\mp3'
+    root_path = '/Users/shiyx/Music/Music/Media.localized/Music'
 
     def __init__(self):
         self.root = tk.Tk()
@@ -277,6 +276,7 @@ class MP3InfoEditor:
                     tags['genre'] = audio['TCON'].text[0]
                 if 'USLT::XXX' in audio:
                     tags['lyric'] = audio['USLT::XXX'].text
+                print(audio)
             elif file_path.lower().endswith('.m4a'):
                 audio = MP4(file_path)
                 if '\xa9nam' in audio:
@@ -287,46 +287,12 @@ class MP3InfoEditor:
                     tags['album'] = audio['\xa9alb'][0]
                 if '\xa9day' in audio:
                     tags['year'] = audio['\xa9day'][0]
-                if 'gnre' in audio:
-                    tags['genre'] = audio['gnre'][0]
+                if '\xa9gen' in audio:
+                    tags['genre'] = audio['\xa9gen'][0]
+                if '\xa9lyr' in audio:
+                    tags['lyric'] = audio['\xa9lyr'][0]
+                print(audio)
         except _util.ID3NoHeaderError as e:
-            print(str(e))
-        return tags
-
-    @staticmethod
-    def get_audio_tags(file_path: str):
-        """
-        获取音频文件的标签信息
-        :param file_path:
-        :return:
-        """
-        tags = {}
-        try:
-            if file_path.lower().endswith('.mp3'):
-                audio = MP3(file_path)
-                if 'title' in audio.tags:  # 标题
-                    tags['title'] = audio.tags['title'][0]
-                if 'artist' in audio.tags:  # 艺术家
-                    tags['artist'] = audio.tags['artist'][0]
-                if 'album' in audio.tags:  # 专辑
-                    tags['album'] = audio.tags['album'][0]
-                if 'year' in audio.tags:  # 年份
-                    tags['year'] = audio.tags['year'][0]
-                if 'genre' in audio.tags:  # 流派
-                    tags['genre'] = audio.tags['genre'][0]
-            elif file_path.lower().endswith('.m4a'):
-                audio = MP4(file_path)
-                if '\xa9nam' in audio.tags:
-                    tags['title'] = audio.tags['\xa9nam'][0]
-                if '\xa9ART' in audio.tags:
-                    tags['artist'] = audio.tags['\xa9ART'][0]
-                if '\xa9alb' in audio.tags:
-                    tags['album'] = audio.tags['\xa9alb'][0]
-                if '\xa9day' in audio.tags:
-                    tags['year'] = audio.tags['\xa9day'][0]
-                if 'gnre' in audio.tags:
-                    tags['genre'] = audio.tags['gnre'][0]
-        except Exception as e:
             print(str(e))
         return tags
     
@@ -400,8 +366,10 @@ class MP3InfoEditor:
                     audio['\xa9alb'] = [tags['album']]
                 if 'year' in tags:
                     audio['\xa9day'] = [tags['year']]
+                if 'lyric' in tags:
+                    audio['\xa9lyr'] = [tags['lyric']]
                 if 'genre' in tags:
-                    audio['gnre'] = [tags['genre']]
+                    audio['\xa9gen'] = [tags['genre']]
                 audio.save(file_path)
             return  True
         except Exception as e:
@@ -435,10 +403,11 @@ class MP3InfoEditor:
         if self.write_id3_tags(self.cur_file_name, tags):
             messagebox.showinfo("提示", "IDV3标签信息保存成功！")
             dst_path = self._create_directorys([self.root_path, artist, album])
-            new_filename = os.path.join(dst_path, '{}-{}{}'.format(title, artist, ext))
-            shutil.move(self.cur_file_name, new_filename)
-            self.load_directory(self.root_path)
-            self._init_compoent_data()
+            new_filename = os.path.join(dst_path, '{}{}'.format(title, ext))
+            if not os.path.exists(new_filename):
+                shutil.move(self.cur_file_name, new_filename)
+                self.load_directory(self.root_path)
+                self._init_compoent_data()
         else:
             messagebox.showinfo("提示", "IDV3标签信息保存失败！")
 
