@@ -13,6 +13,8 @@ from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TCON, USLT, _util
 from mutagen.mp4 import MP4
 
+from mp3Editor.model.music_db import MusicDB
+
 
 MAC_OS = False
 MOUSE_RIGHT_BUTTON = '<Button-3>'
@@ -52,8 +54,9 @@ class MP3InfoEditor:
     cur_directory = None
     cur_file_name = None
     headers = get_dict_by_sep(headers_str, ': ')
-    # root_path = r'F:\mp3'
-    root_path = '/Users/shiyx/Music/Music/Media.localized/Music'
+    mdb = MusicDB('music.sqlite')
+    root_path = r'F:\mp3'
+    # root_path = '/Users/shiyx/Music/Music/Media.localized/Music'
 
     def __init__(self):
         self.root = tk.Tk()
@@ -90,6 +93,7 @@ class MP3InfoEditor:
         self.treeview_context_menu = tk.Menu(self.root, tearoff=0)
         self.treeview_context_menu.add_command(label="获取歌曲信息", command=self.get_song_information)
         self.treeview_context_menu.add_command(label="打开文件所在目录", command=self.open_file_directory)
+
         # 中Frame
         frame_middle = tk.LabelFrame(self.root, text='文件信息')
         frame_middle.pack(side='right', fill=tk.BOTH, expand=True)
@@ -105,14 +109,23 @@ class MP3InfoEditor:
         frame_right_r2.pack(side='top', fill=tk.X)
         self.label_artist = tk.Label(frame_right_r2, text="歌手:")
         self.label_artist.pack(side='left', pady=5)
-        self.entry_artist = tk.Entry(frame_right_r2)
-        self.entry_artist.pack(side='left')
+        self.combobox_artist = ttk.Combobox(frame_right_r2)
+        self.combobox_artist.pack(side='left')
         frame_right_r3 = tk.Frame(frame_middle)
         frame_right_r3.pack(side='top', fill=tk.X)
         self.label_album = tk.Label(frame_right_r3, text="专辑:")
         self.label_album.pack(side='left', pady=5)
-        self.entry_album = tk.Entry(frame_right_r3)
-        self.entry_album.pack(side='left')
+        self.combobox_album = ttk.Combobox(frame_right_r3)
+        self.combobox_album.pack(side='left', fill=tk.X, expand=True)
+        # self.combobox_album.bind('<Return>', self._album_info_init)
+        self.combobox_album.bind('<KeyRelease>', self._album_info_init)
+        self.label_album_pub_date = tk.Label(frame_right_r3, text="发行日期:")
+        self.label_album_pub_date.pack(side='left', pady=5)
+        self.entry_album_pub_date = tk.Entry(frame_right_r3)
+        self.entry_album_pub_date.pack(side='left', pady=5)
+        self.entry_album_pub_date.bind('<KeyRelease>', self._entry_year_init)
+        self.button_album = ttk.Button(frame_right_r3, text='信息入库', command=self._save_album_info)
+        self.button_album.pack(side='left')
         frame_right_r4 = tk.Frame(frame_middle)
         frame_right_r4.pack(side='top', fill=tk.X)
         self.label_year = tk.Label(frame_right_r4, text="年份:")
@@ -131,6 +144,12 @@ class MP3InfoEditor:
         self.label_lyric.pack(side='top', pady=5)
         self.text_lyric = tk.Text(frame_right_r6)
         self.text_lyric.pack(side='top', fill=tk.BOTH)
+        # 绑定右击事件，显示上下文菜单
+        self.text_lyric.bind(MOUSE_RIGHT_BUTTON, self.text_lyric_context_menu_callback)
+        # text_lyric 创建上下文菜单
+        self.text_lyric_context_menu = tk.Menu(self.root, tearoff=0)
+        self.text_lyric_context_menu.add_command(label="去除空行", command=self.text_lyric_strip_line)
+        self.text_lyric_context_menu.add_command(label="双语合并", command=self.text_lyric_merge_line)
         frame_right_bt = tk.Frame(frame_middle)
         frame_right_bt.pack(side=tk.BOTTOM, fill=tk.X)
 
@@ -141,6 +160,14 @@ class MP3InfoEditor:
 
     def _init_data(self):
         self.load_directory(self.root_path)
+
+    @staticmethod
+    def remove_empty_directories(directory):
+        for root, dirs, files in os.walk(directory, topdown=False):
+            for dir_name in dirs:
+                dir_path = os.path.join(root, dir_name)
+                if not os.listdir(dir_path):  # 检查目录是否为空
+                    os.rmdir(dir_path)
 
     def select_directory(self):
         self.cur_directory = filedialog.askdirectory()
@@ -240,10 +267,10 @@ class MP3InfoEditor:
 
     def get_song_information(self):
         title = self.entry_title.get().strip()
-        artist = self.entry_artist.get().strip()
-        kw = '{} {}'.format(title, artist)
+        # artist = self.combobox_artist.get().strip()
+        # kw = '{} {}'.format(title, artist)
         # baike_url = 'https://baike.baidu.com/item/{}'.format(quote(title))
-        baike_url = 'https://www.baidu.com/s?wd={}'.format(quote(kw))
+        baike_url = 'https://www.baidu.com/s?wd={}'.format(quote(title))
         if MAC_OS:
             cmds = 'open {}'.format(baike_url)
         else:
@@ -302,8 +329,8 @@ class MP3InfoEditor:
         :return:
         """
         self.entry_title.delete(0, tk.END)
-        self.entry_artist.delete(0, tk.END)
-        self.entry_album.delete(0, tk.END)
+        self.combobox_artist.delete(0, tk.END)
+        self.combobox_album.delete(0, tk.END)
         self.entry_year.delete(0, tk.END)
         self.entry_genre.delete(0, tk.END)
         self.text_lyric.delete(1.0, tk.END)
@@ -317,8 +344,8 @@ class MP3InfoEditor:
         if not title:
             title = file_name
         self.entry_title.insert(tk.END, title)
-        self.entry_artist.insert(tk.END, tags.get('artist', ''))
-        self.entry_album.insert(tk.END, tags.get('album', ''))
+        self.combobox_artist.insert(tk.END, tags.get('artist', ''))
+        self.combobox_album.insert(tk.END, tags.get('album', ''))
         self.entry_year.insert(tk.END, tags.get('year', ''))
         self.entry_genre.insert(tk.END, tags.get('genre', ''))
         self.text_lyric.insert(1.0, tags.get('lyric', ''))
@@ -392,8 +419,8 @@ class MP3InfoEditor:
         _, ext = os.path.splitext(self.cur_file_name)
         tags = dict()
         title = self.entry_title.get().strip()
-        artist = self.entry_artist.get().strip()
-        album = self.entry_album.get().strip()
+        artist = self.combobox_artist.get().strip()
+        album = self.combobox_album.get().strip()
         tags['title'] = title
         tags['artist'] = artist
         tags['album'] = album
@@ -406,10 +433,57 @@ class MP3InfoEditor:
             new_filename = os.path.join(dst_path, '{}{}'.format(title, ext))
             if not os.path.exists(new_filename):
                 shutil.move(self.cur_file_name, new_filename)
+                self.remove_empty_directories(self.root_path)
                 self.load_directory(self.root_path)
                 self._init_compoent_data()
         else:
             messagebox.showinfo("提示", "IDV3标签信息保存失败！")
+
+    def text_lyric_context_menu_callback(self, event):
+        # 选择鼠标右击的位置
+        self.text_lyric_context_menu.post(event.x_root, event.y_root)
+
+    def text_lyric_strip_line(self):
+        text = self.text_lyric.get(1.0, tk.END)
+        if text != '':
+            lines = text.split('\n')
+            for _ in range(lines.count('')):
+                lines.remove('')
+            text = '\n'.join(lines)
+            self.text_lyric.delete(1.0, tk.END)
+            self.text_lyric.insert(1.0, text)
+
+    def text_lyric_merge_line(self):
+        text = self.text_lyric.get(1.0, tk.END)
+        if text.count('#####\n'):
+            text_left, text_right = text.split('#####\n')
+            left_lines = text_left.split('\n')
+            right_lines = text_right.split('\n')
+            new_text = ''
+            for item in zip(left_lines, right_lines):
+                new_text += '\n'.join(item) + '\n'
+            self.text_lyric.delete(1.0, tk.END)
+            self.text_lyric.insert(1.0, new_text)
+
+    def _album_info_init(self, event):
+        self.entry_year.delete(0, tk.END)
+        s_name = self.combobox_artist.get().strip()
+        a_name = self.combobox_album.get().strip()
+        year = self.mdb.get_album_year(s_name, a_name)
+        self.entry_year.insert(0, year)
+
+    def _entry_year_init(self, event):
+        pub_date = self.entry_album_pub_date.get().strip()
+        self.entry_year.delete(0, tk.END)
+        self.entry_year.insert(0, pub_date[:4])
+
+    def _save_album_info(self):
+        a_name = self.combobox_album.get().strip()
+        a_pub_date = self.entry_album_pub_date.get().strip()
+        a_year = self.entry_year.get().strip()
+        a_artist = self.combobox_artist.get().strip()
+        if not self.mdb.insert_album(a_name, a_artist, a_year, a_pub_date):
+            messagebox.showinfo('提示', '{}的专辑【{}】信息已存在！'.format(a_artist, a_name))
 
 
 if __name__ == "__main__":
