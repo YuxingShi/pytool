@@ -1,4 +1,5 @@
 # coding: utf-8
+import json
 import os
 import re
 import shutil
@@ -15,13 +16,11 @@ from mutagen.mp4 import MP4
 
 from mp3Editor.model.music_db import MusicDB
 
-
 MAC_OS = False
 MOUSE_RIGHT_BUTTON = '<Button-3>'
 if sys.platform == 'darwin':
     MAC_OS = True
     MOUSE_RIGHT_BUTTON = '<Button-2>'
-
 
 headers_str = '''
 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
@@ -51,16 +50,19 @@ def get_dict_by_sep(raw_str: str, sep: str) -> dict:
 
 
 class MP3InfoEditor:
+    PATH_DATA_FILE = os.path.abspath('./data/singer.json')
     cur_directory = None
     cur_file_name = None
     headers = get_dict_by_sep(headers_str, ': ')
     mdb = MusicDB('music.sqlite')
-    root_path = r'F:\mp3'
-    # root_path = '/Users/shiyx/Music/Music/Media.localized/Music'
+    # root_path = r'F:\mp3'
+    singer_dict = None
+    root_path = '/Users/shiyx/Music/Music/Media.localized/Music'
 
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("MP3文件信息编辑")
+        self.root.protocol("WM_DELETE_WINDOW", self._on_closing_)  # 绑定窗口关闭事件
         # 菜单
         self.menu_bar = tk.Menu(self.root)
         self.root.config(menu=self.menu_bar)
@@ -111,14 +113,16 @@ class MP3InfoEditor:
         self.label_artist.pack(side='left', pady=5)
         self.combobox_artist = ttk.Combobox(frame_right_r2)
         self.combobox_artist.pack(side='left')
+        self.combobox_artist.bind('<KeyRelease>', self._album_info_init)
+        self.combobox_artist.bind('<<ComboboxSelected>>', self._album_info_init)
         frame_right_r3 = tk.Frame(frame_middle)
         frame_right_r3.pack(side='top', fill=tk.X)
         self.label_album = tk.Label(frame_right_r3, text="专辑:")
         self.label_album.pack(side='left', pady=5)
         self.combobox_album = ttk.Combobox(frame_right_r3)
         self.combobox_album.pack(side='left', fill=tk.X, expand=True)
-        # self.combobox_album.bind('<Return>', self._album_info_init)
-        self.combobox_album.bind('<KeyRelease>', self._album_info_init)
+        self.combobox_album.bind('<<ComboboxSelected>>', self._year_info_init)
+        self.combobox_album.bind('<KeyRelease>', self._year_info_init)
         self.label_album_pub_date = tk.Label(frame_right_r3, text="发行日期:")
         self.label_album_pub_date.pack(side='left', pady=5)
         self.entry_album_pub_date = tk.Entry(frame_right_r3)
@@ -158,8 +162,29 @@ class MP3InfoEditor:
         # frame_right.pack(side='right', fill=tk.BOTH, expand=True)
         self._init_data()
 
+    def _on_closing_(self):
+        self.write_dict2json(self.PATH_DATA_FILE, self.singer_dict)
+        self.root.destroy()
+
     def _init_data(self):
+        self.singer_dict = self.get_dict_from_json(self.PATH_DATA_FILE)
         self.load_directory(self.root_path)
+        self._init_components()
+
+    def _init_components(self):
+        self.combobox_artist['values'] = [x for x in self.singer_dict.keys()]
+
+    @staticmethod
+    def get_dict_from_json(filename):
+        file_path = os.path.abspath(filename)
+        if os.path.isfile(file_path):
+            with open(file_path, 'r') as fp:
+                return json.load(fp)
+
+    @staticmethod
+    def write_dict2json(filename, obj: dict):
+        with open(filename, 'w')as fp:
+            json.dump(obj, fp, ensure_ascii=False, indent=4)
 
     @staticmethod
     def remove_empty_directories(directory):
@@ -268,9 +293,9 @@ class MP3InfoEditor:
     def get_song_information(self):
         title = self.entry_title.get().strip()
         # artist = self.combobox_artist.get().strip()
-        # kw = '{} {}'.format(title, artist)
+        kw = '{} {}'.format(title, '百度百科')
         # baike_url = 'https://baike.baidu.com/item/{}'.format(quote(title))
-        baike_url = 'https://www.baidu.com/s?wd={}'.format(quote(title))
+        baike_url = 'https://www.baidu.com/s?wd={}'.format(quote(kw))
         if MAC_OS:
             cmds = 'open {}'.format(baike_url)
         else:
@@ -322,7 +347,7 @@ class MP3InfoEditor:
         except _util.ID3NoHeaderError as e:
             print(str(e))
         return tags
-    
+
     def _init_compoent_data(self):
         """
         清理界面上所有信息
@@ -398,7 +423,7 @@ class MP3InfoEditor:
                 if 'genre' in tags:
                     audio['\xa9gen'] = [tags['genre']]
                 audio.save(file_path)
-            return  True
+            return True
         except Exception as e:
             return False
 
@@ -410,6 +435,29 @@ class MP3InfoEditor:
             return True
         else:
             return False
+
+    def save_singer_dict(self, tags: dict):
+        artist = tags.get('artist')
+        dict_artis = self.singer_dict.get(artist)
+        if dict_artis is not None:
+            album = tags.get('album')
+            dict_album = self.singer_dict.get(artist).get(album)
+            if dict_album is not None:
+                self.singer_dict.get(artist).get(album)['year'] = tags.get('year')
+                self.singer_dict.get(artist).get(album)['pubDate'] = tags.get('pub_date')
+                title = tags.get('title')
+                dict_songs = self.singer_dict.get(artist).get(album).get(title)
+                if dict_songs is not None:
+                    self.singer_dict.get(artist).get(album).get(title)['genre'] = tags.get('genre')
+                else:
+                    self.singer_dict[artist][album][title] = {}
+                    self.save_singer_dict(tags)
+            else:
+                self.singer_dict[artist][album] = {}
+                self.save_singer_dict(tags)
+        else:
+            self.singer_dict[artist] = {}
+            self.save_singer_dict(tags)
 
     def save_info(self):
         if not self.cur_file_name:
@@ -427,8 +475,12 @@ class MP3InfoEditor:
         tags['year'] = self.entry_year.get().strip()
         tags['genre'] = self.entry_genre.get().strip()
         tags['lyric'] = self.text_lyric.get(1.0, tk.END).strip()
+        tags['pub_date'] = self.entry_album_pub_date.get().strip()
         if self.write_id3_tags(self.cur_file_name, tags):
             messagebox.showinfo("提示", "IDV3标签信息保存成功！")
+            self.save_singer_dict(tags)
+            self.write_dict2json(self.PATH_DATA_FILE, self.singer_dict)
+            self._init_components()
             dst_path = self._create_directorys([self.root_path, artist, album])
             new_filename = os.path.join(dst_path, '{}{}'.format(title, ext))
             if not os.path.exists(new_filename):
@@ -466,11 +518,24 @@ class MP3InfoEditor:
             self.text_lyric.insert(1.0, new_text)
 
     def _album_info_init(self, event):
+        artist = self.combobox_artist.get().strip()
+        artist_dict = self.singer_dict.get(artist)
+        if artist_dict is not None:
+            self.combobox_album['values'] = [x for x in artist_dict.keys()]
+
+    def _year_info_init(self, event):
         self.entry_year.delete(0, tk.END)
+        self.entry_album_pub_date.delete(0, tk.END)
         s_name = self.combobox_artist.get().strip()
         a_name = self.combobox_album.get().strip()
-        year = self.mdb.get_album_year(s_name, a_name)
-        self.entry_year.insert(0, year)
+        singer = self.singer_dict.get(s_name)
+        if singer is not None:
+            album = singer.get(a_name)
+            if album is not None:
+                year = album.get('year', '未知')
+                pub_date = album.get('pubDate', '未知')
+                self.entry_year.insert(0, year)
+                self.entry_album_pub_date.insert(0, pub_date)
 
     def _entry_year_init(self, event):
         pub_date = self.entry_album_pub_date.get().strip()
