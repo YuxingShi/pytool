@@ -8,6 +8,7 @@ import sys
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from urllib.parse import quote
+from ftp_client import push_file_to_ftp
 
 import requests
 from mutagen.mp3 import MP3
@@ -55,9 +56,14 @@ class MP3InfoEditor:
     cur_file_name = None
     headers = get_dict_by_sep(headers_str, ': ')
     mdb = MusicDB('music.sqlite')
-    # root_path = r'F:\mp3'
     singer_dict = None
-    root_path = '/Users/shiyx/Music/Music/Media.localized/Music'
+    root_path = 'F:/mp3'
+    # root_path = '/Users/shiyx/Music/Music/Media.localized/Music'
+    FTP_SERVER = '192.168.1.100'  # FTP服务器地址
+    FTP_PORT = 2121
+    USERNAME = 'shiyx'  # 用户名（匿名方式）
+    PASSWORD = 'ssyx'  # 密码（留空表示匿名方式）
+    REMOTE_BASE_DIR = '/Music'  # 远程根目录路径
 
     def __init__(self):
         self.root = tk.Tk()
@@ -95,6 +101,7 @@ class MP3InfoEditor:
         self.treeview_context_menu = tk.Menu(self.root, tearoff=0)
         self.treeview_context_menu.add_command(label="获取歌曲信息", command=self.get_song_information)
         self.treeview_context_menu.add_command(label="打开文件所在目录", command=self.open_file_directory)
+        self.treeview_context_menu.add_command(label="FTP传送", command=self.ftp_transmit)
 
         # 中Frame
         frame_middle = tk.LabelFrame(self.root, text='文件信息')
@@ -178,7 +185,7 @@ class MP3InfoEditor:
     def get_dict_from_json(filename):
         file_path = os.path.abspath(filename)
         if os.path.isfile(file_path):
-            with open(file_path, 'r') as fp:
+            with open(file_path, 'r', encoding='utf-8') as fp:
                 return json.load(fp)
 
     @staticmethod
@@ -269,6 +276,9 @@ class MP3InfoEditor:
             cmds = 'start {}'.format(path)
             print(cmds)
         subprocess.Popen(cmds, shell=True)
+
+    def ftp_transmit(self):
+        push_file_to_ftp(self.FTP_SERVER, self.FTP_PORT, self.USERNAME, self.PASSWORD, self.REMOTE_BASE_DIR, self.cur_file_name)
 
     @staticmethod
     def request_internet(url: str, headers=None):
