@@ -27,6 +27,23 @@ def get_passwd_list():
         return lines
 
 
+def check_password(ip, username='root', password='root'):
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    try:
+        ssh.connect(ip, username=username, password=password)
+        print("Success", "密码正确", password)
+    except paramiko.AuthenticationException:
+        print("Error", "密码错误或认证失败")
+    except paramiko.SSHException as ssh_exception:
+        print("Error", f"SSH 连接错误: {ssh_exception}")
+    except Exception as e:
+        print("Error", f"发生未知错误: {e}")
+    ssh.close()
+    
+    
 def connect_host_test(ip, port=22, user='root', password='root'):
     ip_port = '{}:{}'.format(ip, port)
     try:
@@ -51,7 +68,8 @@ if __name__ == "__main__":
     hosts_dict = init_hosts()
     password_list = get_passwd_list()
     tpe = ThreadPoolExecutor(max_workers=password_list.__len__())
-    all_tasks = [tpe.submit(connect_host_test, '10.168.10.54', password=passwd) for passwd in password_list]
+    all_tasks = [tpe.submit(connect_host_test, '10.168.7.25', password=passwd) for passwd in password_list]
+    # all_tasks = [tpe.submit(check_password, '10.168.7.81', password=passwd) for passwd in password_list]
     for task in as_completed(all_tasks):
         ret, result = task.result()
         if ret:
