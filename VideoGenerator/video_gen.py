@@ -1,5 +1,6 @@
 # coding:utf-8
-
+# import os
+# os.environ["IMAGEIO_FFMPEG_EXE"] = "/opt/homebrew/bin/ffmpeg"
 from moviepy.editor import *
 
 
@@ -14,13 +15,8 @@ def generate_video(audio_file, image_file, output_file):
     video_clip = image_clip.set_audio(audio_clip)
 
     # 保存视频文件
-    video_clip.write_videofile(output_file, codec='libx264', audio_codec="aac")
+    video_clip.write_videofile(output_file, fps=1, codec='libx264', audio_codec="aac")
 
-# 调用函数生成视频
-audio_file = "audio.mp3"
-image_file = "image.jpg"
-output_file = "output_video.mp4"
-generate_video(audio_file, image_file, output_file)
 
 def merge_video_clips(video_files, output_file):
     # 创建一个空的视频剪辑对象
@@ -37,7 +33,15 @@ def merge_video_clips(video_files, output_file):
     # 保存最终合并的视频
     final_clip.write_videofile(output_file, codec='libx264')
 
-# 调用函数合并视频
-video_files = ["video1.mp4", "video2.mp4", "video3.mp4"]
-output_file = "merged_video.mp4"
-merge_video_clips(video_files, output_file)
+
+if __name__ == '__main__':
+    # 调用函数生成视频
+    # audio_file = "/Users/shiyx/Desktop/WechatIMG1407.mp3"
+    # image_file = "/Users/shiyx/Desktop/WechatIMG1407.jpeg"
+    # output_file = "/Users/shiyx/Desktop/WechatIMG1407.mp4"
+    # generate_video(audio_file, image_file, output_file)
+    # 调用函数合并视频
+    dst_path = "/Users/shiyx/Desktop/"
+    video_files = ["WechatIMG1407.mp4"]
+    output_file = os.path.join(dst_path, "merged_video.mp4")
+    merge_video_clips(video_files, output_file)

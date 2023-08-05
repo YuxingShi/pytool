@@ -147,8 +147,8 @@ class MP3InfoEditor:
         frame_right_r5.pack(side='top', fill=tk.X)
         self.label_genre = tk.Label(frame_right_r5, text="风格:")
         self.label_genre.pack(side='left', pady=5)
-        self.entry_genre = tk.Entry(frame_right_r5)
-        self.entry_genre.pack(side='left')
+        self.combobox_genre = ttk.Combobox(frame_right_r5)
+        self.combobox_genre.pack(side='left')
         frame_right_r6 = tk.Frame(frame_middle)
         frame_right_r6.pack(side='top', fill=tk.X)
         self.label_lyric = tk.Label(frame_right_r6, text="歌词")
@@ -180,6 +180,7 @@ class MP3InfoEditor:
 
     def _init_components(self):
         self.combobox_artist['values'] = [x for x in self.singer_dict.keys()]
+        self.combobox_genre['values'] = ['流行', '流行摇滚', 'R&B', '摇滚', '民谣', '中国风', '古风', 'Blues']
 
     @staticmethod
     def get_dict_from_json(filename):
@@ -364,26 +365,29 @@ class MP3InfoEditor:
         :return:
         """
         self.entry_title.delete(0, tk.END)
-        self.combobox_artist.delete(0, tk.END)
-        self.combobox_album.delete(0, tk.END)
         self.entry_year.delete(0, tk.END)
-        self.entry_genre.delete(0, tk.END)
         self.text_lyric.delete(1.0, tk.END)
+        self.entry_album_pub_date.delete(0, tk.END)
 
     def load_mp3_info(self, filename: str):
         tags = self.get_id3_tags(filename)
+        self.save_singer_dict(tags)
         file_path, _ = os.path.splitext(filename)
         _, file_name = os.path.split(file_path)
         self._init_compoent_data()
         title = tags.get('title')
+        artist = tags.get('artist', '')
+        album = tags.get('album', '')
+        pub_date = self.singer_dict.get(artist).get(album).get('pubDate') or ''
         if not title:
             title = file_name
         self.entry_title.insert(tk.END, title)
-        self.combobox_artist.insert(tk.END, tags.get('artist', ''))
-        self.combobox_album.insert(tk.END, tags.get('album', ''))
+        self.combobox_artist.set(artist)
+        self.combobox_album.set(album)
         self.entry_year.insert(tk.END, tags.get('year', ''))
-        self.entry_genre.insert(tk.END, tags.get('genre', ''))
+        self.combobox_genre.set(tags.get('genre', ''))
         self.text_lyric.insert(1.0, tags.get('lyric', ''))
+        self.entry_album_pub_date.insert(tk.END, pub_date)
 
     @staticmethod
     def write_tags(file_path: str, tags: dict):
@@ -483,7 +487,7 @@ class MP3InfoEditor:
         tags['artist'] = artist
         tags['album'] = album
         tags['year'] = self.entry_year.get().strip()
-        tags['genre'] = self.entry_genre.get().strip()
+        tags['genre'] = self.combobox_genre.get().strip()
         tags['lyric'] = self.text_lyric.get(1.0, tk.END).strip()
         tags['pub_date'] = self.entry_album_pub_date.get().strip()
         if self.write_id3_tags(self.cur_file_name, tags):
