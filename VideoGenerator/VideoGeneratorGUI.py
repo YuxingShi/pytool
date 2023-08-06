@@ -3,15 +3,14 @@ import json
 import os
 import subprocess
 import sys
+import time
 from threading import Thread
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 
-from tts_demo import text_to_speech
-from playsound import playsound
-# from moviepy.editor import *
-from video_gen import generate_video
+from tts_demo import text_to_speech, play_sound
+from video_gen import generate_video, merge_video_clips
 
 # os.environ['IMAGEIO_FFMPEG_EXE'] = '/opt/homebrew/bin/ffmpeg'
 
@@ -24,7 +23,7 @@ if sys.platform == 'darwin':
 
 class App(tk.Tk):
     cur_file_name = None
-    cur_directory = '/Users/shiyx/Desktop'
+    cur_directory = 'E:\zp'
     thread_playsound = None
 
     def __init__(self):
@@ -41,7 +40,7 @@ class App(tk.Tk):
         self.tool_menu = tk.Menu(self.menu_bar, tearoff=False)
         self.menu_bar.add_cascade(label="工具", menu=self.tool_menu)
         frame_main = tk.Frame(self)
-        frame_main.pack(side='top', fill=tk.Y)
+        frame_main.pack(side='top', fill=tk.BOTH, expand=True)
         # 左Frame
         frame_left = tk.LabelFrame(frame_main, text='文件列表')
         frame_left.pack(side='left', fill=tk.Y)
@@ -80,11 +79,20 @@ class App(tk.Tk):
         self.label_image = tk.Label(frame_image)
         self.label_image.pack(side='left')
         frame_text = tk.LabelFrame(frame_middle, text='文稿')
-        frame_text.pack(side='top')
+        frame_text.pack(side='top', expand=True, fill=tk.BOTH)
         self.text_scripts = tk.Text(frame_text)
         self.text_scripts.pack(side='top', expand=True, fill=tk.BOTH)
-        self.btn_save = ttk.Button(frame_text, text="生成视频", command=self.start_generate_video)
-        self.btn_save.pack(side='top', pady=5)
+        frame_option = tk.Frame(frame_middle)
+        frame_option.pack(side='top', fill=tk.Y)
+        self.btn_gen_video = ttk.Button(frame_option, text="生成视频", command=self.start_generate_video)
+        self.btn_gen_video.pack(side='left')  #, pady=5
+        frame_merge_video = tk.LabelFrame(frame_middle, text='视频合并')
+        frame_merge_video.pack(side='top', expand=True, fill=tk.BOTH)
+        tk.Label(frame_merge_video, text='视频列表').pack(side='left', fill=tk.X)
+        self.entry_video_list = tk.Entry(frame_merge_video)
+        self.entry_video_list.pack(side='left', fill=tk.X)
+        self.btn_concat_video = ttk.Button(frame_merge_video, text="合并视频", command=self.start_concat_video)
+        self.btn_concat_video.pack(side='left')
 
         frame_status = tk.Frame(self)
         frame_status.pack(side='bottom', fill=tk.X)
@@ -147,36 +155,6 @@ class App(tk.Tk):
                 if not os.listdir(dir_path):  # 检查目录是否为空
                     os.rmdir(dir_path)
 
-    # @staticmethod
-    # def generate_video(audio_file, image_file, output_file):
-    #     # 加载音频文件
-    #     audio_clip = AudioFileClip(audio_file)
-    #
-    #     # 创建配图片段
-    #     image_clip = ImageClip(image_file).set_duration(audio_clip.duration)
-    #
-    #     # 将音频与配图合成为视频
-    #     video_clip = image_clip.set_audio(audio_clip)
-    #
-    #     # 保存视频文件
-    #     video_clip.write_videofile(output_file, fps=1, codec='libx264', audio_codec="aac")
-    #
-    # @staticmethod
-    # def merge_video_clips(video_files, output_file):
-    #     # 创建一个空的视频剪辑对象
-    #     final_clip = None
-    #
-    #     # 逐个加载和拼接视频片段
-    #     for file in video_files:
-    #         clip = VideoFileClip(file)
-    #         if final_clip is None:
-    #             final_clip = clip
-    #         else:
-    #             final_clip = concatenate_videoclips([final_clip, clip])
-    #
-    #     # 保存最终合并的视频
-    #     final_clip.write_videofile(output_file, codec='libx264')
-
     def select_directory(self):
         self.cur_directory = filedialog.askdirectory()
         if self.cur_directory:
@@ -233,6 +211,7 @@ class App(tk.Tk):
         selected_item = self.treeview.focus()
         self.cur_file_name = self.get_treeview_node_full_path(selected_item)
         name, ext = os.path.splitext(self.cur_file_name)
+        path, filename = os.path.split(self.cur_file_name)
         print(ext)
         if os.path.isfile(self.cur_file_name):
             if self.is_image(self.cur_file_name):
@@ -247,14 +226,20 @@ class App(tk.Tk):
                 self.play_sound(self.cur_file_name)
             elif ext in ['.txt']:
                 self.show_text(self.cur_file_name)
+            elif ext in ['.mp4']:
+                self.add_concat_video_list(filename)
 
     def show_text(self, filename: str):
         text = self.readfile(filename)
         self.text_scripts.delete(1.0, tk.END)
         self.text_scripts.insert(1.0, text)
 
+    def add_concat_video_list(self, filename):
+        text = '|{}'.format(filename)
+        self.entry_video_list.insert(0, text)
+
     def play_sound(self, file_path):
-        self.thread_playsound = Thread(target=playsound, args=(file_path,), daemon=True)
+        self.thread_playsound = Thread(target=play_sound, args=(file_path,), daemon=True)
         self.thread_playsound.start()
         if self.thread_playsound.is_alive():
             return
@@ -312,6 +297,18 @@ class App(tk.Tk):
         generate_video(mp3_path, image_path, mp4_path)
         self.progress['value'] = 100
         self.load_directory(self.cur_directory)
+
+    def start_concat_video(self, *event):
+        text = self.entry_video_list.get().strip().strip('|')
+        file_list = text.split('|')
+        file_path_list = [os.path.join(self.cur_directory, x) for x in file_list]
+        output_filename = os.path.join(self.cur_directory, '{}.mp4'.format(int(time.time() * 1000)))
+        Thread(target=self._thread_concat_video, args=(file_path_list, output_filename), daemon=True).start()
+
+    def _thread_concat_video(self, video_list, output_filename):
+        self.label_status_bar.configure(text='正在进行视频合并……')
+        merge_video_clips(video_list, output_filename)
+        self.label_status_bar.configure(text='视频合并完成')
 
 
 if __name__ == "__main__":

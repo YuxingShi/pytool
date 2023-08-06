@@ -1,9 +1,15 @@
 # coding:utf-8
 from gtts import gTTS
+from playsound import playsound
+
 
 def text_to_speech(text, output_file):
     tts = gTTS(text=text, lang='zh')  # 将文本转换为英文语音，如果需要其他语言，请更改lang参数 zh zh-TW en
     tts.save(output_file)
+
+
+def play_sound(filename: str):
+    playsound(filename)
 
 
 if __name__ == '__main__':

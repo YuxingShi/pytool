@@ -1,7 +1,8 @@
 # coding:utf-8
 # import os
-# os.environ["IMAGEIO_FFMPEG_EXE"] = "/opt/homebrew/bin/ffmpeg"
+import numpy as np
 from moviepy.editor import *
+from moviepy.video import fx
 
 
 def generate_video(audio_file, image_file, output_file):
@@ -19,12 +20,25 @@ def generate_video(audio_file, image_file, output_file):
 
 
 def merge_video_clips(video_files, output_file):
+    width = 1170  # 视频宽度
+    height = 2530  # 视频高度
+    # 创建一个空白图像数组
+    # blank_image = np.zeros((height, width, 3), dtype=np.uint8)
     # 创建一个空的视频剪辑对象
+    # final_clip = ImageClip(blank_image, ismask=False)
     final_clip = None
 
     # 逐个加载和拼接视频片段
     for file in video_files:
         clip = VideoFileClip(file)
+        # 调整较小视频的尺寸和位置
+        if clip.size[0] < width:  # 如果clip1的宽度小于clip2的宽度
+            clip = clip.resize(width=width)  # 将clip1的宽度调整为和clip2相同
+            # clip = clip.fx(fx.resize, width=width, height=480)  # 将clip1的宽度调整为和clip2相同
+            # clip = clip.set_position(("center", height / 2))  # 将clip1水平居中与clip2对齐
+        # else:
+        #     clip2 = clip2.resize(width=clip.size[0])  # 将clip2的宽度调整为和clip1相同
+        #     clip2 = clip2.set_position(("center", clip1.size[1] / 2))  # 将clip2水平居中与clip1对齐
         if final_clip is None:
             final_clip = clip
         else:
