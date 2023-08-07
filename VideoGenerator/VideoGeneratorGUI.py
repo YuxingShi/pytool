@@ -23,7 +23,7 @@ if sys.platform == 'darwin':
 
 class App(tk.Tk):
     cur_file_name = None
-    cur_directory = 'E:\zp'
+    cur_directory = '/Users/shiyx/Desktop/zp'
     thread_playsound = None
 
     def __init__(self):
@@ -87,10 +87,10 @@ class App(tk.Tk):
         self.btn_gen_video = ttk.Button(frame_option, text="生成视频", command=self.start_generate_video)
         self.btn_gen_video.pack(side='left')  #, pady=5
         frame_merge_video = tk.LabelFrame(frame_middle, text='视频合并')
-        frame_merge_video.pack(side='top', expand=True, fill=tk.BOTH)
+        frame_merge_video.pack(side='top', fill=tk.X)
         tk.Label(frame_merge_video, text='视频列表').pack(side='left', fill=tk.X)
         self.entry_video_list = tk.Entry(frame_merge_video)
-        self.entry_video_list.pack(side='left', fill=tk.X)
+        self.entry_video_list.pack(side='left', expand=True, fill=tk.X)
         self.btn_concat_video = ttk.Button(frame_merge_video, text="合并视频", command=self.start_concat_video)
         self.btn_concat_video.pack(side='left')
 
@@ -273,7 +273,7 @@ class App(tk.Tk):
 
     def show_image(self, path):
         image = Image.open(path)
-        image.thumbnail((300, 300))  # 调整图片大小
+        image.thumbnail((500, 500))  # 调整图片大小
         photo = ImageTk.PhotoImage(image)
         self.label_image.configure(image=photo)
         self.label_image.image = photo
